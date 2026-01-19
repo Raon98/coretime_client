@@ -72,14 +72,9 @@ const getNavItems = (role: UserRole): NavItem[] => {
                 ]
             },
             {
-                label: '시스템 설정',
+                label: '관리자 설정',
                 icon: IconSettings,
                 link: '/settings',
-                children: [
-                    { label: '공지사항', link: '/settings/notices' },
-                    { label: '권한 관리', link: '/settings/permissions' },
-                    { label: '운영 정책', link: '/settings/policy' },
-                ]
             },
         ];
     } else {
@@ -94,6 +89,11 @@ const getNavItems = (role: UserRole): NavItem[] => {
                     { label: '예약 관리', link: '/schedule/reservations' },
                     { label: '출석 체크', link: '/schedule/attendance' },
                 ]
+            },
+            {
+                label: '관리자 설정',
+                icon: IconSettings,
+                link: '/settings',
             },
         ];
     }

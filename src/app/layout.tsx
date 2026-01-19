@@ -5,8 +5,10 @@ import '@mantine/notifications/styles.css';
 
 import { ColorSchemeScript, MantineProvider } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
+import { ModalsProvider } from '@mantine/modals';
 import { theme } from '../theme';
 import { AuthProvider } from '@/context/AuthContext';
+import { SettingsProvider } from '@/context/SettingsContext';
 
 export const metadata = {
   title: 'CoreTime - Pilates Studio Management',
@@ -27,9 +29,13 @@ export default function RootLayout({
       <body>
         <MantineProvider theme={theme}>
           <Notifications />
-          <AuthProvider>
-            {children}
-          </AuthProvider>
+          <ModalsProvider>
+            <AuthProvider>
+              <SettingsProvider>
+                {children}
+              </SettingsProvider>
+            </AuthProvider>
+          </ModalsProvider>
         </MantineProvider>
       </body>
     </html>

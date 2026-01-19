@@ -2,6 +2,8 @@
 
 import { Table, SegmentedControl, Avatar, Group, Text, Badge } from '@mantine/core';
 import { Reservation } from '@/lib/mock-data';
+import { modals } from '@mantine/modals';
+import { useSettings } from '@/context/SettingsContext';
 
 interface AttendanceListProps {
     reservations: Reservation[];
@@ -9,6 +11,28 @@ interface AttendanceListProps {
 }
 
 export function AttendanceList({ reservations, onAttendanceChange }: AttendanceListProps) {
+    const { policies } = useSettings();
+
+    const handleChange = (id: string, newStatus: string) => {
+        if (newStatus === 'ABSENT' && policies.noShow.enabled) {
+            modals.openConfirmModal({
+                title: '노쇼/결석 처리 (No-Show Penalty)',
+                centered: true,
+                children: (
+                    <Text size="sm">
+                        해당 회원을 결석 처리하시겠습니까? <br />
+                        <strong>운영 정책에 따라 수강권 {policies.noShow.penaltyCount}회가 자동 차감됩니다.</strong>
+                    </Text>
+                ),
+                labels: { confirm: '결석 처리 및 차감', cancel: '취소' },
+                confirmProps: { color: 'red' },
+                onConfirm: () => onAttendanceChange(id, newStatus),
+            });
+        } else {
+            onAttendanceChange(id, newStatus);
+        }
+    };
+
     const rows = reservations.map((r) => (
         <Table.Tr key={r.id}>
             <Table.Td>
@@ -27,7 +51,7 @@ export function AttendanceList({ reservations, onAttendanceChange }: AttendanceL
                 <SegmentedControl
                     size="xs"
                     value={r.attendanceStatus || 'NONE'}
-                    onChange={(val) => onAttendanceChange(r.id, val)}
+                    onChange={(val) => handleChange(r.id, val)}
                     data={[
                         { label: '미처리', value: 'NONE' },
                         { label: '출석', value: 'PRESENT' },

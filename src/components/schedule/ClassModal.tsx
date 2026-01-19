@@ -3,7 +3,8 @@
 import { Modal, TextInput, Select, Button, Group, ColorInput, Stack } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { DateInput, TimeInput, DatePickerInput } from '@mantine/dates';
-import { getInstructorsWithColors, getRooms, ClassSession } from '@/lib/mock-data';
+import { getInstructorsWithColors, ClassSession } from '@/lib/mock-data';
+import { useSettings } from '@/context/SettingsContext';
 import { IconClock, IconTrash } from '@tabler/icons-react';
 import { useRef, useEffect } from 'react';
 import dayjs from 'dayjs';
@@ -18,7 +19,7 @@ interface ClassModalProps {
 
 export function ClassModal({ opened, onClose, onSubmit, onDelete, initialData }: ClassModalProps) {
     const instructors = getInstructorsWithColors();
-    const rooms = getRooms();
+    const { rooms } = useSettings();
     const ref = useRef<HTMLInputElement>(null);
 
     const form = useForm({
@@ -58,6 +59,15 @@ export function ClassModal({ opened, onClose, onSubmit, onDelete, initialData }:
             form.setFieldValue('date', new Date());
         }
     }, [initialData, opened]); // Depend on opened to reset when opening fresh
+
+    // Auto-fill capacity when room changes
+    useEffect(() => {
+        if (!form.values.roomId) return;
+        const selectedRoom = rooms.find(r => r.id === form.values.roomId);
+        if (selectedRoom) {
+            form.setFieldValue('maxCapacity', selectedRoom.capacity);
+        }
+    }, [form.values.roomId, rooms]);
 
     const handleSubmit = (values: typeof form.values) => {
         // Transform to ClassSession format for submission

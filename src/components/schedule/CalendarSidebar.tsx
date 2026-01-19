@@ -6,6 +6,8 @@ import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import { getInstructorsWithColors, getRooms } from '@/lib/mock-data';
 import dayjs from 'dayjs';
 
+import { useSettings } from '@/context/SettingsContext';
+
 interface CalendarSidebarProps {
     selectedInstructors: string[]; // ids
     toggleInstructor: (id: string) => void;
@@ -19,7 +21,7 @@ export function CalendarSidebar({
     selectedInstructors, toggleInstructor, selectedRooms, toggleRoom, currentDate, onDateChange
 }: CalendarSidebarProps) {
     const instructors = getInstructorsWithColors();
-    const rooms = getRooms();
+    const { rooms } = useSettings();
 
     return (
         <Stack w={280} h="100%" bg="white" p="md" style={{ borderRight: '1px solid var(--mantine-color-gray-2)' }}>
