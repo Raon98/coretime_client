@@ -1,7 +1,8 @@
 'use client';
 
-import { AppShell, Burger, Group, Skeleton, Text, NavLink, Avatar, Menu, UnstyledButton, Badge } from '@mantine/core';
+import { AppShell, Burger, Group, Skeleton, Text, NavLink, Avatar, Menu, UnstyledButton, Badge, Box, Stack, LoadingOverlay } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
+import { modals } from '@mantine/modals';
 import {
     IconLayoutDashboard,
     IconCalendarEvent,
@@ -10,9 +11,12 @@ import {
     IconSpeakerphone,
     IconSettings,
     IconLogout,
-    IconBell
+    IconBell,
+    IconChevronDown,
+    IconBuildingStore,
+    IconPlus
 } from '@tabler/icons-react';
-import { StudioWeightLogo } from '@/components/common/StudioWeightLogo';
+import { BrandLogo } from '@/components/common/BrandLogo';
 import { useAuth, UserRole } from '@/context/AuthContext';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -108,60 +112,142 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const pathname = usePathname();
     const router = useRouter();
 
+    // Mock Branches
+    const [currentBranch, setCurrentBranch] = useState('강남점');
+    const [isSwitching, setIsSwitching] = useState(false);
+    const branches = ['강남점', '서울숲점', '역삼점'];
+
+    const handleBranchSwitch = (branch: string) => {
+        setIsSwitching(true);
+        // Simulate API call/Context update
+        setTimeout(() => {
+            setCurrentBranch(branch);
+            setIsSwitching(false);
+        }, 800);
+    };
+
+    const handleRegisterBranch = () => {
+        modals.openConfirmModal({
+            title: '새 지점 등록',
+            children: (
+                <Text size="sm">
+                    새로운 지점을 등록하시겠습니까? 등록 프로세스를 위해 신원 확인 및 지점 설정 페이지로 이동합니다.
+                </Text>
+            ),
+            labels: { confirm: '이동하기', cancel: '취소' },
+            confirmProps: { color: 'teal' },
+            onConfirm: () => router.push('/identity'),
+        });
+    };
+
     if (!user) {
-        return null;
+        return null; // Or skeleton
     }
 
     const navItems = getNavItems(user.role);
 
     return (
         <AppShell
-            header={{ height: 60 }}
+            header={{ height: 64 }} // Slightly taller header
             navbar={{
-                width: 250,
+                width: 260,
                 breakpoint: 'sm',
                 collapsed: { mobile: !opened },
             }}
             padding="md"
             bg="gray.0"
         >
-            <AppShell.Header>
+            <AppShell.Header style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
                 <Group h="100%" px="md" justify="space-between">
-                    <Group>
-                        <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
-                        <Group gap={8} style={{ cursor: 'pointer' }} onClick={() => router.push('/')}>
-                            <StudioWeightLogo size={30} />
-                            <Text fw={700} size="lg" c="indigo">
-                                CoreTime
-                            </Text>
+                    <Group gap="xl">
+                        <Group>
+                            <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+                            {/* Brand Logo - Click to Home */}
+                            <Box onClick={() => router.push('/')} style={{ cursor: 'pointer' }}>
+                                <BrandLogo size="md" />
+                            </Box>
                         </Group>
 
-                        {/* Breadcrumbs or Page Title could go here */}
-                        {user.organizationId && (
-                            <Badge variant="light" color="gray" size="lg" radius="xs">
-                                {user.organizationId === 'org_pending' ? '승인 대기 중' : '스튜디오웨이트 강남점'}
-                            </Badge>
-                        )}
+                        {/* Branch Switcher */}
+                        <Menu shadow="md" width={220} position="bottom-start" radius="md">
+                            <Menu.Target>
+                                <UnstyledButton
+                                    style={{
+                                        padding: '6px 10px',
+                                        borderRadius: '8px',
+                                        transition: 'background 0.2s',
+                                    }}
+                                    className="branch-switcher-btn"
+                                >
+                                    <Group gap={6}>
+                                        <Box style={{
+                                            width: 24, height: 24, borderRadius: '6px',
+                                            backgroundColor: 'var(--mantine-color-gray-2)',
+                                            color: 'var(--mantine-color-dark-6)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                        }}>
+                                            <IconBuildingStore size={14} stroke={2} />
+                                        </Box>
+                                        <Stack gap={0}>
+                                            <Text size="10px" c="dimmed" fw={600} style={{ lineHeight: 1 }}>STUDIO</Text>
+                                            <Group gap={4} align="center">
+                                                <Text size="sm" fw={700} c="dark.8" style={{ lineHeight: 1 }}>
+                                                    {`스튜디오웨이트 ${currentBranch}`}
+                                                </Text>
+                                                <IconChevronDown size={12} color="gray" />
+                                            </Group>
+                                        </Stack>
+                                    </Group>
+                                </UnstyledButton>
+                            </Menu.Target>
+
+                            <Menu.Dropdown>
+                                <Menu.Label>내 지점 목록</Menu.Label>
+                                {branches.map(branch => (
+                                    <Menu.Item
+                                        key={branch}
+                                        leftSection={<IconBuildingStore size={14} />}
+                                        color={currentBranch === branch ? 'indigo' : undefined}
+                                        bg={currentBranch === branch ? 'indigo.0' : undefined}
+                                        onClick={() => handleBranchSwitch(branch)}
+                                    >
+                                        스튜디오웨이트 {branch}
+                                    </Menu.Item>
+                                ))}
+
+                                <Menu.Divider />
+
+                                <Menu.Item
+                                    leftSection={<IconPlus size={14} />}
+                                    onClick={handleRegisterBranch}
+                                >
+                                    새 지점 등록하기
+                                </Menu.Item>
+                            </Menu.Dropdown>
+                        </Menu>
                     </Group>
 
+                    {/* Right Side Tools */}
                     <Group>
-                        <IconBell size={20} stroke={1.5} />
-                        <Menu shadow="md" width={200}>
+                        <IconBell size={22} stroke={1.5} color="var(--mantine-color-gray-6)" style={{ cursor: 'pointer' }} />
+                        <Menu shadow="md" width={200} trigger="hover" openDelay={100} closeDelay={400}>
                             <Menu.Target>
                                 <UnstyledButton>
-                                    <Group gap={8}>
-                                        <Avatar radius="xl" color="indigo" name={user.name} />
-                                        <div style={{ flex: 1 }}>
-                                            <Text size="sm" fw={500}>{user.name}</Text>
-                                            <Text c="dimmed" size="xs">
-                                                {user.role === 'OWNER' ? '센터장' : '강사'}
+                                    <Group gap={10}>
+                                        <Avatar radius="xl" size={36} name={user.name} />
+                                        <div style={{ flex: 1 }} className="hidden-mobile">
+                                            <Text size="sm" fw={600} style={{ lineHeight: 1.2 }}>{user.name}</Text>
+                                            <Text c="dimmed" size="11px" fw={500} style={{ lineHeight: 1 }}>
+                                                {user.role === 'OWNER' ? '최고 관리자' : '강사'}
                                             </Text>
                                         </div>
                                     </Group>
                                 </UnstyledButton>
                             </Menu.Target>
                             <Menu.Dropdown>
-                                <Menu.Item leftSection={<IconSettings size={14} />}>내 프로필</Menu.Item>
+                                <Menu.Label>계정 설정</Menu.Label>
+                                <Menu.Item leftSection={<IconSettings size={14} />}>내 프로필 설정</Menu.Item>
+                                <Menu.Divider />
                                 <Menu.Item
                                     color="red"
                                     leftSection={<IconLogout size={14} />}
@@ -175,7 +261,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </Group>
             </AppShell.Header>
 
-            <AppShell.Navbar p="md">
+            <AppShell.Navbar p="md" style={{ borderRight: '1px solid var(--mantine-color-gray-2)' }}>
                 {navItems.map((item) => {
                     const hasChildren = item.children && item.children.length > 0;
                     const isActive = pathname === item.link || pathname.startsWith(item.link + '/');
@@ -185,14 +271,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             key={item.label}
                             label={item.label}
                             leftSection={<item.icon size={20} stroke={1.5} />}
-                            active={isActive && !hasChildren} // Only active if no children (or handle parent active state distinct)
-                            // If has children, we might want it opened by default if active
+                            active={isActive && !hasChildren}
                             defaultOpened={isActive}
                             onClick={() => {
                                 if (!hasChildren) router.push(item.link);
                             }}
                             variant="light"
-                            color="indigo"
+                            fw={500}
                             style={{ borderRadius: '8px', marginBottom: '4px' }}
                         >
                             {hasChildren && item.children!.map((child) => (
@@ -201,8 +286,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     label={child.label}
                                     active={pathname === child.link}
                                     onClick={() => router.push(child.link)}
-                                    // Indent or style
-                                    style={{ borderRadius: '8px', fontSize: '14px' }}
+                                    style={{ borderRadius: '8px', fontSize: '14px', fontWeight: 400 }}
                                 />
                             ))}
                         </NavLink>
@@ -210,7 +294,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 })}
             </AppShell.Navbar>
 
-            <AppShell.Main>
+            <AppShell.Main bg="#f8f9fa" style={{ position: 'relative' }}>
+                <LoadingOverlay visible={isSwitching} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} loaderProps={{ color: 'teal', type: 'bars' }} />
                 {children}
             </AppShell.Main>
         </AppShell>
