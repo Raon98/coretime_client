@@ -102,7 +102,7 @@ const getAccessToken = async () => {
 
 // --- Interceptors ---
 
-// Request: Attach Access Token
+// Request: Attach Access Token and Organization ID
 api.interceptors.request.use(
     async (config: InternalAxiosRequestConfig) => {
         // Skip token for auth endpoints if needed, but usually safe to attach
@@ -111,13 +111,24 @@ api.interceptors.request.use(
             return config;
         }
 
-        const token = await getAccessToken();
-        if (token) {
+        const session = await getSession();
+
+        // Attach Access Token
+        if (session?.accessToken) {
             if (!config.headers) {
                 config.headers = {} as any;
             }
-            config.headers.Authorization = `Bearer ${token}`;
+            config.headers.Authorization = `Bearer ${session.accessToken}`;
         }
+
+        // Attach Organization ID
+        if (session?.user?.organizationId) {
+            if (!config.headers) {
+                config.headers = {} as any;
+            }
+            config.headers['X-Organization-ID'] = String(session.user.organizationId);
+        }
+
         return config;
     },
     (error) => Promise.reject(error)

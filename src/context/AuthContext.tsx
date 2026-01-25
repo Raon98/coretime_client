@@ -32,6 +32,7 @@ interface AuthContextType {
     createOwnerOrganization: (data: RegisterOrganizationCommand) => Promise<number>;
     joinInstructorOrganization: (data: JoinOrganizationCommand) => Promise<void>;
     checkAuth: () => Promise<void>;
+    loadProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,6 +46,25 @@ function AuthContent({ children }: { children: ReactNode }) {
 
     const isLoading = status === 'loading';
 
+    // Load profile from API
+    const loadProfile = async () => {
+        try {
+            const profile = await authApi.getMe();
+            console.log('AuthContext: Loaded profile from API:', profile);
+            setUser(prev => ({
+                id: profile.accountId,
+                name: profile.name,
+                email: prev?.email || '',
+                phone: prev?.phone,
+                role: profile.identity as UserRole,
+                organizationId: profile.organizationId,
+                status: 'ACTIVE',
+            }));
+        } catch (error) {
+            console.error('AuthContext: Failed to load profile:', error);
+        }
+    };
+
     // Sync Session to Local User State
     useEffect(() => {
         if (session?.user) {
@@ -55,6 +75,7 @@ function AuthContent({ children }: { children: ReactNode }) {
                 sessionStorage.setItem('signupToken', session.user.signupToken);
             }
 
+            // Set initial user from session
             setUser({
                 id: session.user.id || '',
                 name: session.user.name || '',
@@ -64,6 +85,11 @@ function AuthContent({ children }: { children: ReactNode }) {
                 status: 'ACTIVE',
                 signupToken: session.user.signupToken
             });
+
+            // Load complete profile from API if user has a role (fully authenticated)
+            if (session.user.role && session.user.role !== 'TEMPUSER') {
+                loadProfile();
+            }
         } else {
             setUser(null);
             // Check session storage for signup token persistence during signup flow
@@ -146,7 +172,8 @@ function AuthContent({ children }: { children: ReactNode }) {
             signUp,
             createOwnerOrganization,
             joinInstructorOrganization,
-            checkAuth
+            checkAuth,
+            loadProfile
         }}>
             {children}
         </AuthContext.Provider>

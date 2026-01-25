@@ -279,7 +279,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                         <div style={{ flex: 1 }} className="hidden-mobile">
                                             <Text size="sm" fw={600} style={{ lineHeight: 1.2 }}>{user.name}</Text>
                                             <Text c="dimmed" size="11px" fw={500} style={{ lineHeight: 1 }}>
-                                                {user.role === 'OWNER' ? '최고 관리자' : '강사'}
+                                                {user.role === 'SYSTEM_ADMIN' ? '시스템 관리자' : user.role === 'OWNER' ? '센터장' : user.role === 'INSTRUCTOR' ? '강사' : user.role === 'MEMBER' ? '회원' : '직원'}
                                             </Text>
                                         </div>
                                     </Group>
