@@ -78,6 +78,30 @@ export interface MeResult {
     profileImageUrl?: string | null;
 }
 
+// Profile Management Types
+export interface UpdateProfileCommand {
+    name?: string;
+    phone?: string;
+    email?: string;
+}
+
+export interface ChangePasswordCommand {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+}
+
+export interface NotificationSettings {
+    emailNotifications: boolean;
+    smsNotifications: boolean;
+    reservationReminder: boolean;
+    marketingConsent: boolean;
+}
+
+export interface UploadAvatarResult {
+    profileImageUrl: string;
+}
+
 // --- API Client ---
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL + "/api/v1" || 'http://localhost:8080/api/v1';
@@ -348,6 +372,45 @@ export const authApi = {
         });
         return response.data.data;
     }
+};
+
+// Profile Management API
+export const profileApi = {
+    // Update profile information
+    updateProfile: async (command: UpdateProfileCommand) => {
+        const response = await api.put<ApiResponse<MeResult>>('/users/me', command);
+        return response.data.data;
+    },
+
+    // Upload profile avatar
+    uploadAvatar: async (file: File) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await api.post<ApiResponse<UploadAvatarResult>>('/users/me/avatar', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return response.data.data;
+    },
+
+    // Change password
+    changePassword: async (command: ChangePasswordCommand) => {
+        const response = await api.put<ApiResponse<void>>('/users/me/password', command);
+        return response.data;
+    },
+
+    // Get notification settings
+    getNotificationSettings: async () => {
+        const response = await api.get<ApiResponse<NotificationSettings>>('/users/me/notification-settings');
+        return response.data.data;
+    },
+
+    // Update notification settings
+    updateNotificationSettings: async (settings: NotificationSettings) => {
+        const response = await api.put<ApiResponse<NotificationSettings>>('/users/me/notification-settings', settings);
+        return response.data.data;
+    },
 };
 
 export default api;
