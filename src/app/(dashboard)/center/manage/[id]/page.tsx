@@ -14,7 +14,7 @@ interface PageProps {
 
 export default function CenterManagePage({ params }: PageProps) {
     const { id } = use(params);
-    const centerId = Number(id);
+    const centerId = id; // Keep as string to match TSID type
     const router = useRouter();
 
     const [activeTab, setActiveTab] = useState<string | null>('info');

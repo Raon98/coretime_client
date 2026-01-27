@@ -12,29 +12,37 @@ import {
     IconClockPlay, IconSearch, IconFilter, IconDownload,
     IconSortDescending, IconCheck, IconCreditCard, IconReceipt, IconCurrencyWon, IconUser
 } from '@tabler/icons-react';
-import { useMembers, Ticket, Member } from '@/context/MemberContext';
-import { useFinance } from '@/context/FinanceContext';
+import { useMembers, Member } from '@/context/MemberContext'; // useMembers kept for local helper if needed
 import { notifications } from '@mantine/notifications';
 import { useState, useMemo, useEffect } from 'react';
 import dayjs from 'dayjs';
 import { DatePickerInput } from '@mantine/dates';
 import { useDisclosure } from '@mantine/hooks';
 import { useRouter } from 'next/navigation';
+import {
+    useMemberTickets,
+    useMembersList,
+    memberTicketApi,
+    memberTicketKeys,
+    IssueTicketCommand,
+    MemberTicketResult,
+    useAvailablePayments
+} from '@/lib/api';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function TicketManagementPage() {
-    const { tickets, members, pauseTicket, addTicket, updateTicket } = useMembers(); // BA = Typo in context? No, just destructuring
-    const { transactions, updateTransaction } = useFinance();
     const router = useRouter();
 
-    // Modals
+    const queryClient = useQueryClient();
+    const { data: tickets = [], isLoading } = useMemberTickets();
+    const { data: members = [] } = useMembersList();
+    // Removed general payments hook
+
     const [registerOpened, { open: openRegister, close: closeRegister }] = useDisclosure(false);
     const [editOpened, { open: openEdit, close: closeEdit }] = useDisclosure(false);
 
-    // Edit State
-    const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+    const [selectedTicket, setSelectedTicket] = useState<MemberTicketResult | null>(null);
     const [editMode, setEditMode] = useState<'ADD_COUNT' | 'EXTEND'>('ADD_COUNT');
-
-    // Register Form State
     const [newTicketData, setNewTicketData] = useState({
         memberId: '',
         name: '1:1 PT 10회',
@@ -43,10 +51,7 @@ export default function TicketManagementPage() {
         endDate: dayjs().add(1, 'year').toDate()
     });
 
-    // Pre-paid activation state
     const [selectedPrePaidTxId, setSelectedPrePaidTxId] = useState<string | null>(null);
-
-    // Edit Form State
     const [editValue, setEditValue] = useState<number | Date | null>(null);
 
     // Stats
@@ -58,17 +63,15 @@ export default function TicketManagementPage() {
     const lowBalance = tickets.filter(t => t.status === 'ACTIVE' && t.remainingCount <= 3).length;
     const pausedCount = tickets.filter(t => t.status === 'PAUSED').length;
 
-    // Helper to get member name
-    const getMemberName = (id: string) => members.find(m => m.id === id)?.name || 'Unknown';
+    const getMemberName = (id: string) => members.find(m => String(m.id) === String(id))?.name || 'Unknown';
 
     // --- Filtering & Sorting ---
-    const [filterType, setFilterType] = useState<string | null>('ALL'); // ALL, EXPIRING, LOW_BALANCE, PAUSED
+    const [filterType, setFilterType] = useState<string | null>('ALL');
     const [search, setSearch] = useState('');
     const [sortOrder, setSortOrder] = useState<string>('NAME_ASC');
 
     const filteredTickets = useMemo(() => {
         return tickets.filter(t => {
-            // 1. Status Filter
             if (filterType === 'EXPIRING') {
                 const diff = dayjs(t.endDate).diff(dayjs(), 'day');
                 if (!(t.status === 'ACTIVE' && diff <= 7 && diff >= 0)) return false;
@@ -78,15 +81,13 @@ export default function TicketManagementPage() {
                 if (t.status !== 'PAUSED') return false;
             }
 
-            // 2. Search
-            const memberName = getMemberName(t.memberId);
+            const memberName = getMemberName(t.membershipId);
             if (search && !memberName.includes(search)) return false;
 
             return true;
         }).sort((a, b) => {
-            // 3. Sorting
             if (sortOrder === 'NAME_ASC') {
-                return getMemberName(a.memberId).localeCompare(getMemberName(b.memberId));
+                return getMemberName(a.membershipId).localeCompare(getMemberName(b.membershipId));
             } else if (sortOrder === 'REG_DESC') {
                 return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
             } else if (sortOrder === 'REMAINING_ASC') {
@@ -99,14 +100,8 @@ export default function TicketManagementPage() {
     }, [tickets, filterType, search, sortOrder, members]);
 
     // Available pre-paid transactions for selected member
-    const availableTransactions = useMemo(() => {
-        if (!newTicketData.memberId) return [];
-        return transactions.filter(tx =>
-            tx.memberId === newTicketData.memberId &&
-            tx.status === 'PAID' &&
-            !tx.linkedTicketId
-        );
-    }, [newTicketData.memberId, transactions]);
+    // Use the dedicated hook instead of client-side filtering
+    const { data: availableTransactions = [] } = useAvailablePayments(newTicketData.memberId);
 
     useEffect(() => {
         // Reset pre-paid selection when member changes
@@ -115,7 +110,7 @@ export default function TicketManagementPage() {
 
     const handlePrePaidSelect = (txId: string) => {
         setSelectedPrePaidTxId(txId === selectedPrePaidTxId ? null : txId); // Toggle logic
-        const tx = transactions.find(t => t.id === txId);
+        const tx = availableTransactions.find(t => t.id === txId);
         if (tx && txId !== selectedPrePaidTxId) {
             // Auto-fill from transaction product info
             setNewTicketData(prev => ({
@@ -139,13 +134,82 @@ export default function TicketManagementPage() {
 
     // --- Action Handlers ---
 
+    // --- Queries & Mutations ---
+    // (Hooks moved to top)
+
+    // Mutations
+    const issueMutation = useMutation({
+        mutationFn: (data: IssueTicketCommand) => memberTicketApi.issueTicket(data),
+        onSuccess: () => {
+            notifications.show({ title: '활성화 완료', message: '수강권이 성공적으로 활성화되었습니다.', color: 'green', icon: <IconCheck size={18} /> });
+            queryClient.invalidateQueries({ queryKey: memberTicketKeys.all });
+            closeRegister();
+            setNewTicketData({
+                memberId: '',
+                name: '1:1 PT 10회',
+                totalCount: 10,
+                startDate: new Date(),
+                endDate: dayjs().add(1, 'year').toDate() // Default 1 year
+            });
+            setSelectedPrePaidTxId(null);
+        },
+        onError: (err: any) => {
+            notifications.show({ title: '오류', message: err.message || '수강권 발급 중 오류가 발생했습니다.', color: 'red' });
+        }
+    });
+
+    const statusMutation = useMutation({
+        mutationFn: ({ id, pause }: { id: string, pause: boolean }) => memberTicketApi.updateStatus(id, pause),
+        onSuccess: (data) => {
+            const status = data.status === 'PAUSED' ? '일시 정지' : '활성화';
+            notifications.show({ title: '상태 변경 완료', message: `수강권이 ${status} 되었습니다.`, color: 'green' });
+            queryClient.invalidateQueries({ queryKey: memberTicketKeys.all });
+        }
+    });
+
+    const addCountMutation = useMutation({
+        mutationFn: ({ id, count }: { id: string, count: number }) => memberTicketApi.addCount(id, count),
+        onSuccess: (data) => {
+            notifications.show({ title: '횟수 추가 완료', message: `총 횟수가 ${data.totalCount}회로 변경되었습니다.`, color: 'green' });
+            queryClient.invalidateQueries({ queryKey: memberTicketKeys.all });
+            closeEdit();
+        }
+    });
+
+    const extendMutation = useMutation({
+        mutationFn: ({ id, endDate }: { id: string, endDate: string }) => memberTicketApi.extendTicket(id, endDate),
+        onSuccess: (data) => {
+            notifications.show({ title: '기간 연장 완료', message: `유효기간이 ${data.endDate}까지 연장되었습니다.`, color: 'green' });
+            queryClient.invalidateQueries({ queryKey: memberTicketKeys.all });
+            closeEdit();
+        }
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: (id: string) => memberTicketApi.deleteTicket(id),
+        onSuccess: () => {
+            notifications.show({ title: '삭제 완료', message: '수강권이 삭제되었습니다.', color: 'gray' });
+            queryClient.invalidateQueries({ queryKey: memberTicketKeys.all });
+        }
+    });
+
+    // --- Action Handlers ---
+
     const handleRegister = () => {
         // Validation
         if (!newTicketData.memberId) {
             notifications.show({ title: '오류', message: '회원을 선택해주세요.', color: 'red' });
             return;
         }
+        // Note: Payment linking is optional in API but required in UI currently? 
+        // Let's keep it required if that's the business rule, or relax it. 
+        // The user prompt says "paymentId No (Optional)". 
+        // But UI logic forces selection. I will relax it if the user wants manual issue, 
+        // but for now I'll respect the existing UI logic which requires a transaction.
+        // Actually, let's keep it flexible if possible, but the UI is built around linking a transaction.
+        // I'll keep the check but maybe we can allow manual entry in future.
         if (!selectedPrePaidTxId) {
+            // For now, let's assume we want to enforce linking for this UI flow
             notifications.show({ title: '오류', message: '활성화할 결제 내역(수강권)을 선택해야 합니다.', color: 'red' });
             return;
         }
@@ -154,43 +218,25 @@ export default function TicketManagementPage() {
             return;
         }
 
-        // 1. Create Ticket
-        const newTicket = addTicket({
-            memberId: newTicketData.memberId,
-            name: newTicketData.name,
+        // 1. Create Command
+        const command: IssueTicketCommand = {
+            membershipId: newTicketData.memberId,
+            ticketName: newTicketData.name,
             totalCount: newTicketData.totalCount,
-            remainingCount: newTicketData.totalCount,
-            startDate: newTicketData.startDate,
-            endDate: newTicketData.endDate,
-            status: 'ACTIVE'
-        });
+            startDate: dayjs(newTicketData.startDate).format('YYYY-MM-DD'),
+            endDate: dayjs(newTicketData.endDate).format('YYYY-MM-DD'),
+            paymentId: selectedPrePaidTxId,
+            // ticketProductId? - we could find this from transaction if needed
+        };
 
-        // 2. Link Transaction
-        updateTransaction(selectedPrePaidTxId, { linkedTicketId: newTicket.id });
-
-        notifications.show({
-            title: '활성화 완료',
-            message: '수강권이 성공적으로 활성화되었습니다.',
-            color: 'green',
-            icon: <IconCheck size={18} />
-        });
-
-        closeRegister();
-        // Reset defaults
-        setNewTicketData({
-            memberId: '',
-            name: '1:1 PT 10회',
-            totalCount: 10,
-            startDate: new Date(),
-            endDate: dayjs().add(1, 'year').toDate()
-        });
-        setSelectedPrePaidTxId(null);
+        issueMutation.mutate(command);
     };
 
-    const openEditModal = (ticket: Ticket, mode: 'ADD_COUNT' | 'EXTEND') => {
+    const openEditModal = (ticket: any, mode: 'ADD_COUNT' | 'EXTEND') => {
         setSelectedTicket(ticket);
         setEditMode(mode);
-        setEditValue(mode === 'ADD_COUNT' ? 0 : ticket.endDate);
+        // Ensure Date object for date picker
+        setEditValue(mode === 'ADD_COUNT' ? 0 : new Date(ticket.endDate));
         openEdit();
     };
 
@@ -200,20 +246,20 @@ export default function TicketManagementPage() {
         if (editMode === 'ADD_COUNT') {
             const addAmt = Number(editValue);
             if (addAmt <= 0) return;
-            updateTicket(selectedTicket.id, {
-                totalCount: selectedTicket.totalCount + addAmt,
-                remainingCount: selectedTicket.remainingCount + addAmt
-            });
-            notifications.show({ title: '횟수 추가 완료', message: `${addAmt}회가 추가되었습니다.`, color: 'green' });
+            addCountMutation.mutate({ id: selectedTicket.id, count: addAmt });
         } else {
             // EXTEND
             const newDate = editValue as Date;
-            updateTicket(selectedTicket.id, {
-                endDate: newDate
+            extendMutation.mutate({
+                id: selectedTicket.id,
+                endDate: dayjs(newDate).format('YYYY-MM-DD')
             });
-            notifications.show({ title: '기간 연장 완료', message: `유효기간이 ${dayjs(newDate).format('YY.MM.DD')}까지 연장되었습니다.`, color: 'green' });
         }
-        closeEdit();
+    };
+
+    // Pause Handler
+    const handlePauseToggle = (ticketId: string, isPaused: boolean) => {
+        statusMutation.mutate({ id: ticketId, pause: isPaused });
     };
 
 
@@ -308,26 +354,26 @@ export default function TicketManagementPage() {
                         </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
-                        {filteredTickets.map((ticket) => {
-                            const daysLeft = dayjs(ticket.endDate).diff(dayjs(), 'day');
+                        {filteredTickets.map((t) => {
+                            const daysLeft = dayjs(t.endDate).diff(dayjs(), 'day');
                             const isExpiring = daysLeft <= 7 && daysLeft >= 0;
-                            const percent = (ticket.remainingCount / ticket.totalCount) * 100;
+                            const percent = (t.remainingCount / t.totalCount) * 100;
 
                             return (
-                                <Table.Tr key={ticket.id}>
+                                <Table.Tr key={t.id}>
                                     <Table.Td>
-                                        <Text fw={500} size="sm">{getMemberName(ticket.memberId)}</Text>
+                                        <Text fw={500} size="sm">{getMemberName(t.membershipId)}</Text>
                                     </Table.Td>
                                     <Table.Td>
                                         <Group gap="xs">
                                             <IconTicket size={16} color="gray" />
-                                            <Text size="sm">{ticket.name}</Text>
+                                            <Text size="sm">{t.ticketName}</Text>
                                         </Group>
                                     </Table.Td>
                                     <Table.Td>
                                         <Group gap="xs" mb={4} justify="space-between">
-                                            <Text size="xs" fw={700}>{ticket.remainingCount}회</Text>
-                                            <Text size="xs" c="dimmed">/ {ticket.totalCount}회</Text>
+                                            <Text size="xs" fw={700}>{t.remainingCount}회</Text>
+                                            <Text size="xs" c="dimmed">/ {t.totalCount}회</Text>
                                         </Group>
                                         <Progress
                                             value={percent}
@@ -339,7 +385,7 @@ export default function TicketManagementPage() {
                                     <Table.Td>
                                         <Group gap="xs">
                                             <Text size="sm" c={isExpiring ? 'red' : undefined} fw={isExpiring ? 700 : 400}>
-                                                {dayjs(ticket.endDate).format('YYYY-MM-DD')}
+                                                {dayjs(t.endDate).format('YYYY-MM-DD')}
                                             </Text>
                                             <Badge size="xs" variant="light" color={isExpiring ? 'red' : 'gray'}>
                                                 D-{daysLeft < 0 ? 'Exp' : daysLeft}
@@ -348,9 +394,9 @@ export default function TicketManagementPage() {
                                     </Table.Td>
                                     <Table.Td>
                                         <Badge
-                                            color={ticket.status === 'ACTIVE' ? 'green' : ticket.status === 'PAUSED' ? 'orange' : 'gray'}
+                                            color={t.status === 'ACTIVE' ? 'green' : t.status === 'PAUSED' ? 'orange' : 'gray'}
                                         >
-                                            {ticket.status}
+                                            {t.status === 'PAUSED' ? '일시정지' : t.status === 'ACTIVE' ? '사용가능' : t.status}
                                         </Badge>
                                     </Table.Td>
                                     <Table.Td>
@@ -359,20 +405,20 @@ export default function TicketManagementPage() {
                                                 <ActionIcon variant="subtle" color="gray"><IconDotsVertical size={16} /></ActionIcon>
                                             </Menu.Target>
                                             <Menu.Dropdown>
-                                                <Menu.Item leftSection={<IconPlus size={14} />} onClick={() => openEditModal(ticket, 'ADD_COUNT')}>횟수 추가</Menu.Item>
-                                                <Menu.Item leftSection={<IconClockPlay size={14} />} onClick={() => openEditModal(ticket, 'EXTEND')}>기간 연장</Menu.Item>
-                                                {ticket.status === 'ACTIVE' && (
+                                                <Menu.Item leftSection={<IconPlus size={14} />} onClick={() => openEditModal(t, 'ADD_COUNT')}>횟수 추가</Menu.Item>
+                                                <Menu.Item leftSection={<IconClockPlay size={14} />} onClick={() => openEditModal(t, 'EXTEND')}>기간 연장</Menu.Item>
+                                                {t.status === 'ACTIVE' && (
                                                     <Menu.Item
                                                         leftSection={<IconPlayerPause size={14} />}
-                                                        onClick={() => pauseTicket(ticket.id, true)}
+                                                        onClick={() => handlePauseToggle(t.id, true)}
                                                     >
                                                         일시 정지
                                                     </Menu.Item>
                                                 )}
-                                                {ticket.status === 'PAUSED' && (
+                                                {t.status === 'PAUSED' && (
                                                     <Menu.Item
                                                         leftSection={<IconPlayerPause size={14} />}
-                                                        onClick={() => pauseTicket(ticket.id, false)}
+                                                        onClick={() => handlePauseToggle(t.id, false)}
                                                     >
                                                         정지 해제
                                                     </Menu.Item>
@@ -391,7 +437,7 @@ export default function TicketManagementPage() {
             <Modal opened={registerOpened} onClose={closeRegister} title={
                 <Group gap="xs">
                     <IconTicket size={20} color="var(--mantine-color-blue-6)" />
-                    <Text fw={700}>수강권 등록 (Payment-Linked)</Text>
+                    <Text fw={700}>수강권 등록</Text>
                 </Group>
             } size="lg">
                 <Stack>
@@ -400,7 +446,7 @@ export default function TicketManagementPage() {
                         <Text size="sm" fw={600} mb={4}>1. 회원 선택</Text>
                         <Select
                             placeholder="이름 또는 전화번호로 검색"
-                            data={members.map(m => ({ value: m.id, label: `${m.name} (${m.phone})` }))}
+                            data={members.map(m => ({ value: String(m.id), label: `${m.name} (${m.phone})` }))}
                             searchable
                             value={newTicketData.memberId}
                             onChange={(v) => setNewTicketData({ ...newTicketData, memberId: v || '' })}
@@ -415,7 +461,7 @@ export default function TicketManagementPage() {
                     {newTicketData.memberId && (
                         <div>
                             <Group justify="space-between" mb="xs">
-                                <Text size="sm" fw={600}>2. 결제 내역 선택 (수강권 대상)</Text>
+                                <Text size="sm" fw={600}>2. 수강권 선택</Text>
                                 {availableTransactions.length > 0 &&
                                     <Badge variant="light" color="blue">{availableTransactions.length}건 발견</Badge>
                                 }
@@ -532,7 +578,7 @@ export default function TicketManagementPage() {
                 {selectedTicket && (
                     <>
                         <Text size="sm" mb="md" c="dimmed">
-                            {getMemberName(selectedTicket.memberId)}님 - {selectedTicket.name}
+                            {getMemberName(selectedTicket.membershipId)}님 - {selectedTicket.ticketName}
                         </Text>
 
                         {editMode === 'ADD_COUNT' ? (

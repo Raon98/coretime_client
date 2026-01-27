@@ -52,7 +52,7 @@ export default function TicketProductPage() {
 
     // Update mutation
     const updateMutation = useMutation({
-        mutationFn: ({ id, data }: { id: number; data: CreateTicketProductCommand }) =>
+        mutationFn: ({ id, data }: { id: string; data: CreateTicketProductCommand }) =>
             ticketProductApi.update(id, data),
         onSuccess: () => {
             notifications.show({

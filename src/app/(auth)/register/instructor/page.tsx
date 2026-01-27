@@ -21,8 +21,8 @@ export default function RegisterInstructorPage() {
     // Search related state
     const [opened, { open, close }] = useDisclosure(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [organizationList, setOrganizationList] = useState<{ id: number, name: string, address: string }[]>([]);
-    const [selectedCenter, setSelectedCenter] = useState<{ id: number, name: string, address: string } | null>(null);
+    const [organizationList, setOrganizationList] = useState<{ id: string, name: string, address: string }[]>([]);
+    const [selectedCenter, setSelectedCenter] = useState<{ id: string, name: string, address: string } | null>(null);
 
     const handleCodeChange = async (value: string) => {
         setCode(value);

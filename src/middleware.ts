@@ -21,9 +21,28 @@ function isPublicFile(pathname: string) {
   );
 }
 
-function isPublicPath(pathname: string) {
+function isPublicPath(pathname: string, searchParams: URLSearchParams) {
   if (PUBLIC_PATHS.includes(pathname)) return true;
   if (isPublicFile(pathname)) return true;
+
+  // Allow OAuth callback URLs with tokens to pass through
+  // This enables backend OAuth2 redirects like /?accessToken=...&refreshToken=...
+  const hasAccessToken = searchParams.has("accessToken");
+  const hasRefreshToken = searchParams.has("refreshToken");
+  if (hasAccessToken && hasRefreshToken) {
+    return true;
+  }
+
+  // Allow pending approval flow: /login?state=pending&accessToken=...
+  if (pathname === "/login" && searchParams.has("state") && hasAccessToken) {
+    return true;
+  }
+
+  // Allow onboarding flow: /identity?state=onboarding&accessToken=...
+  if (pathname === "/identity" && searchParams.has("state") && hasAccessToken) {
+    return true;
+  }
+
   return false;
 }
 
@@ -49,7 +68,7 @@ export async function middleware(request: NextRequest) {
   /**
 2) 공개 경로는 통과
    */
-  if (isPublicPath(pathname)) {
+  if (isPublicPath(pathname, searchParams)) {
     return NextResponse.next();
   }
 

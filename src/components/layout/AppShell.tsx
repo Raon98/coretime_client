@@ -14,7 +14,8 @@ import {
     IconBell,
     IconChevronDown,
     IconBuildingStore,
-    IconPlus
+    IconPlus,
+    IconUserCheck
 } from '@tabler/icons-react';
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { useAuth, UserRole } from '@/context/AuthContext';
@@ -59,7 +60,11 @@ const getNavItems = (role: UserRole): NavItem[] => {
                     { label: '출석 체크', link: '/schedule/attendance' },
                 ]
             },
-
+            {
+                label: '강사 관리',
+                icon: IconUserCheck, // Added new icon
+                link: '/center/instructors',
+            },
             {
                 label: '매출 및 결제',
                 icon: IconReceipt2,
@@ -139,7 +144,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (organizations.length > 0 && !currentBranch) {
             // Logic to select default
             if (user?.organizationId) {
-                const current = organizations.find(o => o.id === user.organizationId);
+                const current = organizations.find(o => String(o.id) === String(user.organizationId));
                 if (current) setCurrentBranch(current.name);
                 else setCurrentBranch(organizations[0].name);
             } else {

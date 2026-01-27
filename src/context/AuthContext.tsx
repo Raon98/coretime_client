@@ -15,7 +15,7 @@ interface User {
     email: string;
     phone?: string;
     role: UserRole;
-    organizationId?: number | null;
+    organizationId?: string | number | null;
     status?: 'ACTIVE' | 'PENDING' | 'REJECTED';
     signupToken?: string;
     profileImageUrl?: string | null;
@@ -30,7 +30,7 @@ interface AuthContextType {
     registrationData: Partial<SignUpCommand> | null;
     setRegistrationData: (data: Partial<SignUpCommand> | null) => void;
     signUp: (data: SignUpCommand) => Promise<void>;
-    createOwnerOrganization: (data: RegisterOrganizationCommand) => Promise<number>;
+    createOwnerOrganization: (data: RegisterOrganizationCommand) => Promise<string | number>;
     joinInstructorOrganization: (data: JoinOrganizationCommand) => Promise<void>;
     checkAuth: () => Promise<void>;
     loadProfile: () => Promise<void>;
@@ -127,9 +127,10 @@ function AuthContent({ children }: { children: ReactNode }) {
                 signupToken: session.user.signupToken
             });
 
-            // Load complete profile from API if user is authenticated (has ID/Email)
-            // We fetch profile even if role is missing in session, to "self-heal" and get the latest role
-            if (session.user.id && loadedSessionId.current !== sessionId) {
+            // CRITICAL: Only load complete profile from API if user has an actual JWT access token
+            // This prevents /me API calls on login page or during OAuth flows where session exists
+            // but user hasn't actually authenticated yet
+            if (session.user.id && session.user.accessToken && loadedSessionId.current !== sessionId) {
                 loadProfileInternal(sessionId);
             }
         } else {

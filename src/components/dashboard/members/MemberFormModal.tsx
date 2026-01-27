@@ -3,6 +3,7 @@ import { useForm } from '@mantine/form';
 import { DateInput } from '@mantine/dates';
 import { useEffect } from 'react';
 import dayjs from 'dayjs';
+import { IMaskInput } from 'react-imask';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { memberApi, UpdateMemberCommand, RegisterByStaffCommand } from '@/lib/api';
 import { notifications } from '@mantine/notifications';
@@ -152,9 +153,12 @@ export default function MemberFormModal({ opened, onClose, member }: MemberFormM
                     mb="sm"
                     {...form.getInputProps('name')}
                 />
+
                 <TextInput
+                    component={IMaskInput}
+                    {...({ mask: "000-0000-0000" } as any)}
                     label="전화번호"
-                    placeholder="010-1234-5678"
+                    placeholder="010-0000-0000"
                     required
                     mb="sm"
                     {...form.getInputProps('phone')}

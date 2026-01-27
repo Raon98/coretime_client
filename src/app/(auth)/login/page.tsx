@@ -66,8 +66,8 @@ function LoginContent() {
                     role: 'TEMPUSER'
                 });
 
-                // Give NextAuth time to update the session (small delay to ensure session is ready)
-                await new Promise(resolve => setTimeout(resolve, 100));
+                // Give NextAuth time to update the session (increased from 100ms to 300ms)
+                await new Promise(resolve => setTimeout(resolve, 300));
 
                 // CRITICAL: Clear the session cache to force fresh session fetch
                 clearSessionCache();
@@ -87,12 +87,13 @@ function LoginContent() {
                 const uniqueIds = Array.from(new Set(ids));
 
                 console.log("LoginPage: Fetching organizations with authenticated session...");
-                // Use the new batch API - now the session should have the token
-                const results = await authApi.getOrganizations(uniqueIds);
+                // Use the new batch API with skipAuthRedirect to prevent auto-logout on 401
+                const results = await authApi.getOrganizations(uniqueIds, { _skipAuthRedirect: true });
                 setPendingOrgs(results);
                 openPending();
             } catch (error) {
                 console.error("Failed to fetch pending organizations", error);
+                // Still show the modal even if we can't fetch org details
                 openPending();
             }
         };

@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { TSID } from '@/lib/mock-data';
 import { useMembersList, useTicketsList } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 // --- Types ---
 
@@ -90,9 +91,18 @@ export const getMockTickets = (): Ticket[] => {
 const MemberContext = createContext<MemberContextType | undefined>(undefined);
 
 export function MemberProvider({ children }: { children: ReactNode }) {
-    // Use React Query for data fetching
-    const { data: memberDtos = [], isLoading: isMembersLoading } = useMembersList();
-    const { data: tickets = [], isLoading: isTicketsLoading } = useTicketsList();
+    const { user } = useAuth(); // Get user from AuthContext
+
+    // Only fetch members/tickets if user is authenticated and has appropriate role
+    const shouldFetchData = user && (user.role === 'OWNER' || user.role === 'INSTRUCTOR');
+
+    // Use React Query for data fetching - conditionally enabled
+    const { data: memberDtos = [], isLoading: isMembersLoading } = useMembersList({
+        enabled: !!shouldFetchData
+    });
+    const { data: tickets = [], isLoading: isTicketsLoading } = useTicketsList({
+        enabled: !!shouldFetchData
+    });
 
     // Map DTOs to UI Member type
     const members = memberDtos.map(dto => ({
