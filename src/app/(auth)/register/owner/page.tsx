@@ -25,7 +25,7 @@ export default function RegisterOwnerPage() {
     const [loading, setLoading] = useState(false);
     const [storedPhone, setStoredPhone] = useState('');
     const [storedName, setStoredName] = useState('');
-    const [createdOrgId, setCreatedOrgId] = useState<number | null>(null); // Store ID for redirect using modal
+    const [createdOrgId, setCreatedOrgId] = useState<number | string | null>(null); // Store ID for redirect using modal
     const [successOpened, { open: openSuccess, close: closeSuccess }] = useDisclosure(false);
 
     // Error Modal State
