@@ -365,6 +365,7 @@ function PaymentModal({ opened, onClose, products, onProcess, isLoading }: {
                 productId: selectedProductId,
                 amount: Number(amount),
                 method: method,
+                autoIssue: autoRegister,
             });
         }
     };

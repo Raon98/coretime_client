@@ -144,7 +144,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (organizations.length > 0 && !currentBranch) {
             // Logic to select default
             if (user?.organizationId) {
-                const current = organizations.find(o => o.id === user.organizationId);
+                const current = organizations.find(o => String(o.id) === String(user.organizationId));
                 if (current) setCurrentBranch(current.name);
                 else setCurrentBranch(organizations[0].name);
             } else {

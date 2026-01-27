@@ -156,7 +156,7 @@ export default function MemberFormModal({ opened, onClose, member }: MemberFormM
 
                 <TextInput
                     component={IMaskInput}
-                    mask="000-0000-0000"
+                    {...({ mask: "000-0000-0000" } as any)}
                     label="전화번호"
                     placeholder="010-0000-0000"
                     required

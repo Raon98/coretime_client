@@ -56,7 +56,7 @@ export default function MyCentersPage() {
         router.push('/register/create-center');
     };
 
-    const handleManage = (id: number) => {
+    const handleManage = (id: string) => {
         router.push(`/center/manage/${id}`);
     };
 

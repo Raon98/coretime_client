@@ -138,6 +138,45 @@ export interface Payment {
     status: PaymentStatus;
     paidAt: string;
     refundedAt?: string;
+    linkedTicketId?: string | null;
+}
+
+// Member Ticket Types
+export type TicketStatus = 'ACTIVE' | 'PAUSED' | 'EXPIRED' | 'EXHAUSTED' | 'DELETED';
+
+export interface MemberTicketResult {
+    id: string;
+    membershipId: string;
+    ticketName: string;
+    totalCount: number;
+    remainingCount: number;
+    startDate: string;       // YYYY-MM-DD
+    endDate: string;         // YYYY-MM-DD
+    paymentId?: string;
+    ticketProductId?: string;
+    status: TicketStatus;
+}
+
+export interface IssueTicketCommand {
+    membershipId: string;
+    ticketName: string;
+    totalCount: number;
+    startDate: string;       // YYYY-MM-DD
+    endDate: string;         // YYYY-MM-DD
+    paymentId?: string;
+    ticketProductId?: string;
+}
+
+export interface UpdateTicketStatusCommand {
+    pause: boolean;
+}
+
+export interface ExtendTicketCommand {
+    endDate: string;         // YYYY-MM-DD
+}
+
+export interface AddTicketCountCommand {
+    count: number;
 }
 
 export interface CreatePaymentCommand {
@@ -146,6 +185,7 @@ export interface CreatePaymentCommand {
     amount: number;
     method: PaymentMethod;
     linkedTicketId?: string | null;
+    autoIssue?: boolean;
 }
 
 export interface RefundResult {
@@ -515,6 +555,54 @@ export const paymentApi = {
         const response = await api.post<ApiResponse<RefundResult>>(`/finance/payments/${paymentId}/refund`);
         return response.data;
     },
+
+    // Get available payments for membership
+    // Endpoint: /finance/payments/available?membershipId={id}
+    getAvailable: async (membershipId: string) => {
+        const response = await api.get<ApiResponse<Payment[]>>('/finance/payments/available', {
+            params: { membershipId }
+        });
+        return response.data.data;
+    }
+};
+
+// Member Ticket API
+export const memberTicketApi = {
+    // 1. Issue Ticket
+    issueTicket: async (command: IssueTicketCommand) => {
+        const response = await api.post<ApiResponse<MemberTicketResult>>('/memberships/tickets', command);
+        return response.data.data;
+    },
+
+    // 2. Get Tickets
+    getTickets: async () => {
+        const response = await api.get<ApiResponse<MemberTicketResult[]>>('/memberships/tickets');
+        return response.data.data;
+    },
+
+    // 3. Update Status (Pause/Unpause)
+    updateStatus: async (ticketId: string, pause: boolean) => {
+        const response = await api.patch<ApiResponse<MemberTicketResult>>(`/memberships/tickets/${ticketId}/status`, { pause });
+        return response.data.data;
+    },
+
+    // 4. Extend Ticket
+    extendTicket: async (ticketId: string, endDate: string) => {
+        const response = await api.patch<ApiResponse<MemberTicketResult>>(`/memberships/tickets/${ticketId}/extend`, { endDate });
+        return response.data.data;
+    },
+
+    // 5. Add Count
+    addCount: async (ticketId: string, count: number) => {
+        const response = await api.patch<ApiResponse<MemberTicketResult>>(`/memberships/tickets/${ticketId}/count`, { count });
+        return response.data.data;
+    },
+
+    // 6. Delete Ticket
+    deleteTicket: async (ticketId: string) => {
+        const response = await api.delete<ApiResponse<void>>(`/memberships/tickets/${ticketId}`);
+        return response.data;
+    },
 };
 
 export default api;
@@ -615,11 +703,54 @@ export function usePendingInstructors(options?: Omit<UseQueryOptions<InstructorD
     });
 }
 
+// --- Member Ticket Hooks ---
+
+export const memberTicketKeys = {
+    all: ['memberTickets'] as const,
+    detail: (id: string) => ['memberTickets', id] as const,
+};
+
+export function useMemberTickets(options?: Omit<UseQueryOptions<MemberTicketResult[], Error>, 'queryKey' | 'queryFn'>) {
+    return useQuery({
+        queryKey: memberTicketKeys.all,
+        queryFn: memberTicketApi.getTickets,
+        staleTime: 5 * 60 * 1000,
+        ...options
+    });
+}
+
 export function useActiveInstructors(options?: Omit<UseQueryOptions<InstructorDto[], Error>, 'queryKey' | 'queryFn'>) {
     return useQuery({
         queryKey: ['instructors', 'active'] as const,
         queryFn: () => authApi.getActiveInstructors(),
         staleTime: 2 * 60 * 1000,
+        ...options
+    });
+}
+
+// --- Finance Hooks ---
+
+export const financeKeys = {
+    payments: ['payments'] as const,
+    available: (membershipId: string) => ['payments', 'available', membershipId] as const,
+    products: ['products'] as const,
+};
+
+export function usePayments(options?: Omit<UseQueryOptions<Payment[], Error>, 'queryKey' | 'queryFn'>) {
+    return useQuery({
+        queryKey: financeKeys.payments,
+        queryFn: paymentApi.getAll,
+        staleTime: 1 * 60 * 1000,
+        ...options
+    });
+}
+
+export function useAvailablePayments(membershipId: string, options?: Omit<UseQueryOptions<Payment[], Error>, 'queryKey' | 'queryFn'>) {
+    return useQuery({
+        queryKey: financeKeys.available(membershipId),
+        queryFn: () => paymentApi.getAvailable(membershipId),
+        enabled: !!membershipId, // Only fetch if membershipId is present
+        staleTime: 0, // Always fresh for this critical UI
         ...options
     });
 }

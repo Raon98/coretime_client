@@ -15,7 +15,7 @@ interface User {
     email: string;
     phone?: string;
     role: UserRole;
-    organizationId?: number | null;
+    organizationId?: string | number | null;
     status?: 'ACTIVE' | 'PENDING' | 'REJECTED';
     signupToken?: string;
     profileImageUrl?: string | null;
@@ -30,7 +30,7 @@ interface AuthContextType {
     registrationData: Partial<SignUpCommand> | null;
     setRegistrationData: (data: Partial<SignUpCommand> | null) => void;
     signUp: (data: SignUpCommand) => Promise<void>;
-    createOwnerOrganization: (data: RegisterOrganizationCommand) => Promise<number>;
+    createOwnerOrganization: (data: RegisterOrganizationCommand) => Promise<string | number>;
     joinInstructorOrganization: (data: JoinOrganizationCommand) => Promise<void>;
     checkAuth: () => Promise<void>;
     loadProfile: () => Promise<void>;
