@@ -129,8 +129,8 @@ export type PaymentMethod = 'CARD' | 'TRANSFER' | 'CASH';
 export type PaymentStatus = 'PAID' | 'REFUNDED' | 'CANCELLED';
 
 export interface Payment {
-    id: number;
-    membershipId: number;
+    id: String;
+    membershipId: String;
     memberName: string;
     productName: string;
     amount: number;
@@ -141,8 +141,8 @@ export interface Payment {
 }
 
 export interface CreatePaymentCommand {
-    membershipId: number;
-    productId: number;
+    membershipId: String;
+    productId: String;
     amount: number;
     method: PaymentMethod;
     linkedTicketId?: number | null;
@@ -398,14 +398,14 @@ export const authApi = {
         return response.data.data;
     },
     // 5.3 Approve/Reject
-    updateMembershipStatus: async (membershipId: number, isApproved: boolean) => {
+    updateMembershipStatus: async (membershipId: string, isApproved: boolean) => {
         const response = await api.patch<ApiResponse<any>>(`/management/memberships/${membershipId}/status`, null, {
             params: { isApproved }
         });
         return response.data.data;
     },
     // 5.4 Update Status
-    updateInstructorStatus: async (membershipId: number, status: string) => {
+    updateInstructorStatus: async (membershipId: string, status: string) => {
         const response = await api.patch<ApiResponse<any>>(`/management/instructors/${membershipId}/management`, { status });
         return response.data.data;
     },
@@ -665,13 +665,7 @@ export const memberApi = {
         });
         return response.data.data;
     },
-    getMember: async (membershipId: number): Promise<MembershipDto> => {
-        // Assuming there is a GET single endpoint or we filter from list?
-        // User doc only shows listing, but usually we need detail. 
-        // For now, if no detail endpoint, we might reuse list or assuming /memberships/{id} exists implicitly standard REST
-        // However, doc says "Update Member Info" is PATCH /api/v1/memberships/{membershipId}
-        // Let's assume GET /api/v1/memberships/{membershipId} exists or we rely on the list.
-        // For safety, I'll restrict to list for now as per specific request instructions unless needed.
+    getMember: async (membershipId: string): Promise<MembershipDto> => {
         throw new Error("Get single member not explicitly documented yet");
     },
     updateMember: async (membershipId: string | number, command: UpdateMemberCommand): Promise<MembershipDto> => {

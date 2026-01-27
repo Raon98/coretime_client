@@ -104,7 +104,7 @@ export default function CenterManagePage({ params }: PageProps) {
         finally { setLoading(false); }
     };
 
-    const handleApprove = async (membershipId: number) => {
+    const handleApprove = async (membershipId: string) => {
         if (!confirm('승인하시겠습니까?')) return;
         try {
             await authApi.updateMembershipStatus(membershipId, true);
@@ -112,7 +112,7 @@ export default function CenterManagePage({ params }: PageProps) {
         } catch (e) { alert('처리 실패'); }
     };
 
-    const handleReject = async (membershipId: number) => {
+    const handleReject = async (membershipId: string) => {
         if (!confirm('거절하시겠습니까?')) return;
         try {
             await authApi.updateMembershipStatus(membershipId, false);
