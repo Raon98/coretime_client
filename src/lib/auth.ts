@@ -119,7 +119,7 @@ export const authOptions: NextAuthOptions = {
                     };
 
                     const response = await authApi.login(loginCommand);
-                    
+
                     user.accessToken = response.accessToken;
                     user.refreshToken = response.refreshToken;
                     user.isSignUpRequired = response.isSignUpRequired;
@@ -151,7 +151,7 @@ export const authOptions: NextAuthOptions = {
                     signupToken: user.signupToken,
                     isSignUpRequired: user.isSignUpRequired,
                     expiresAt: decoded?.exp ? decoded.exp * 1000 : Date.now() + (60 * 60 * 1000),
-                };
+                } as any;
             }
 
             if (token.expiresAt && Date.now() < token.expiresAt) {
@@ -181,7 +181,7 @@ export const authOptions: NextAuthOptions = {
             session.accessToken = token.accessToken;
             session.refreshToken = token.refreshToken;
             session.error = token.error;
-            session.user.id = token.id;
+            session.user.id = token.id || "";
             session.user.role = token.role;
             session.user.organizationId = token.organizationId;
             session.user.isSignUpRequired = token.isSignUpRequired;

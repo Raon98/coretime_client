@@ -245,7 +245,7 @@ function MemberDrawer({
     const { tickets } = useMembers();
 
     const noteMutation = useMutation({
-        mutationFn: async ({ id, note }: { id: string | number, note: string }) => {
+        mutationFn: async ({ id, note }: { id: string, note: string }) => {
             const membershipId = id;
 
             if (!member) return;

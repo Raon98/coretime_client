@@ -197,6 +197,24 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL + "/api/v1" || 'http://localhos
 
 const api = axios.create({
     baseURL: BASE_URL,
+    transformResponse: [
+        (data) => {
+            if (typeof data === 'string') {
+                try {
+                    // Regex to match large numbers (15+ digits) and wrap them in quotes
+                    // Identifies: : 123456789012345678... followed by , } or ]
+                    // We must be careful not to corrupt valid numbers or mess up strings
+                    // This is a "best effort" heuristic for the Long -> String problem without json-bigint
+                    const transformed = data.replace(/:\s*(\d{15,})([,\}\]])/g, ': "$1"$2');
+                    return JSON.parse(transformed);
+                } catch (e) {
+                    // Fallback to default parsing if regex/parse fails
+                    return JSON.parse(data);
+                }
+            }
+            return data;
+        }
+    ],
     headers: {
         'Content-Type': 'application/json',
     },
