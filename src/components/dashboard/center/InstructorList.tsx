@@ -155,8 +155,8 @@ function InstructorTable({ instructors, onAction }: { instructors: InstructorDto
                             </Table.Td>
                             <Table.Td>
                                 <Text size="sm">
-                                    {instructor.joinedAt
-                                        ? formatDistance(new Date(instructor.joinedAt), new Date(), {
+                                    {instructor.approvedAt
+                                        ? formatDistance(new Date(instructor.approvedAt), new Date(), {
                                             addSuffix: true,
                                             locale: ko
                                         })
@@ -196,8 +196,8 @@ function InstructorCards({ instructors, onAction }: { instructors: InstructorDto
                         <div>
                             <Text size="xs" c="dimmed" mb={4}>가입일</Text>
                             <Text size="sm">
-                                {instructor.joinedAt
-                                    ? formatDistance(new Date(instructor.joinedAt), new Date(), {
+                                {instructor.approvedAt
+                                    ? formatDistance(new Date(instructor.approvedAt), new Date(), {
                                         addSuffix: true,
                                         locale: ko
                                     })

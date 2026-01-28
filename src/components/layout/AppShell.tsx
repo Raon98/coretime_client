@@ -20,7 +20,7 @@ import {
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { useAuth, UserRole } from '@/features/auth';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, Suspense } from 'react';
 import { authApi, useMyOrganizations, OrganizationResult } from '@/lib/api'; // Added useMyOrganizations
 import { AppShellSkeleton } from '@/components/layout/AppShellSkeleton';
 
@@ -131,13 +131,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const { user, logout, isLoading: isAuthLoading, refreshUser } = useAuth();
     const pathname = usePathname();
     const router = useRouter();
-    const searchParams = useSearchParams();
-
-    // Reconstruct current path with query params for accurate navbar highlighting
-    const currentFullLink = useMemo(() => {
-        const query = searchParams.toString();
-        return query ? `${pathname}?${query}` : pathname;
-    }, [pathname, searchParams]);
 
     // Fetch Organizations using React Query
     // Use manual query hook or just rely on the one imported
@@ -357,36 +350,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </AppShell.Header>
 
             <AppShell.Navbar p="md" style={{ borderRight: '1px solid var(--mantine-color-gray-2)' }}>
-                {navItems.map((item) => {
-                    const hasChildren = item.children && item.children.length > 0;
-                    const isActive = pathname === item.link || pathname.startsWith(item.link + '/');
-
-                    return (
-                        <NavLink
-                            key={item.label}
-                            label={item.label}
-                            leftSection={<item.icon size={20} stroke={1.5} />}
-                            active={isActive && !hasChildren}
-                            defaultOpened={isActive}
-                            onClick={() => {
-                                if (!hasChildren) router.push(item.link);
-                            }}
-                            variant="light"
-                            fw={500}
-                            style={{ borderRadius: '8px', marginBottom: '4px' }}
-                        >
-                            {hasChildren && item.children!.map((child) => (
-                                <NavLink
-                                    key={child.label}
-                                    label={child.label}
-                                    active={currentFullLink === child.link}
-                                    onClick={() => router.push(child.link)}
-                                    style={{ borderRadius: '8px', fontSize: '14px', fontWeight: 400 }}
-                                />
-                            ))}
-                        </NavLink>
-                    );
-                })}
+                <Suspense fallback={<NavbarSkeleton />}>
+                    <NavbarContent navItems={navItems} pathname={pathname} router={router} />
+                </Suspense>
             </AppShell.Navbar>
 
             <AppShell.Main bg="#f8f9fa" style={{ position: 'relative' }}>
@@ -394,5 +360,59 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {children}
             </AppShell.Main>
         </AppShell>
+    );
+}
+function NavbarContent({ navItems, pathname, router }: { navItems: NavItem[], pathname: string, router: any }) {
+    const searchParams = useSearchParams();
+
+    // Reconstruct current path with query params for accurate navbar highlighting
+    const currentFullLink = useMemo(() => {
+        const query = searchParams.toString();
+        return query ? `${pathname}?${query}` : pathname;
+    }, [pathname, searchParams]);
+
+    return (
+        <>
+            {navItems.map((item) => {
+                const hasChildren = item.children && item.children.length > 0;
+                const isActive = pathname === item.link || pathname.startsWith(item.link + '/');
+
+                return (
+                    <NavLink
+                        key={item.label}
+                        label={item.label}
+                        leftSection={<item.icon size={20} stroke={1.5} />}
+                        active={isActive && !hasChildren}
+                        defaultOpened={isActive}
+                        onClick={() => {
+                            if (!hasChildren) router.push(item.link);
+                        }}
+                        variant="light"
+                        fw={500}
+                        style={{ borderRadius: '8px', marginBottom: '4px' }}
+                    >
+                        {hasChildren && item.children!.map((child) => (
+                            <NavLink
+                                key={child.label}
+                                label={child.label}
+                                active={currentFullLink === child.link}
+                                onClick={() => router.push(child.link)}
+                                style={{ borderRadius: '8px', fontSize: '14px', fontWeight: 400 }}
+                            />
+                        ))}
+                    </NavLink>
+                );
+            })}
+        </>
+    );
+}
+
+function NavbarSkeleton() {
+    return (
+        <Stack gap="xs">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Skeleton key={i} height={38} radius="8px" />
+            ))}
+        </Stack>
     );
 }

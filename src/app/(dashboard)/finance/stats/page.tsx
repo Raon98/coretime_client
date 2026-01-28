@@ -17,8 +17,11 @@ import {
     useFinanceStatsTrend,
     useFinanceStatsPaymentMethods,
     useFinanceStatsTransactions,
-    PaymentMethod
+    PaymentMethod,
+    PaymentStatus
 } from '@/lib/api';
+import { notifications } from '@mantine/notifications';
+import { IconDatabaseOff } from '@tabler/icons-react';
 
 const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
     CARD: '신용카드',
@@ -158,7 +161,7 @@ export default function FinanceStatsPage() {
                             <Text fw={700} size="lg">매출 추이</Text>
                             <Badge variant="light" color="gray">단위: 원</Badge>
                         </Group>
-                        {isTrendLoading ? <Skeleton h={300} /> : (
+                        {isTrendLoading ? <Skeleton h={300} /> : chartTrendData.length > 0 ? (
                             <AreaChart
                                 h={300}
                                 data={chartTrendData}
@@ -173,14 +176,38 @@ export default function FinanceStatsPage() {
                                 tickLine="y"
                                 withLegend
                                 legendProps={{ verticalAlign: 'top', height: 30 }}
+                                activeDotProps={{
+                                    r: 6,
+                                    style: { cursor: 'pointer' }
+                                }}
+                                areaProps={(series) => ({
+                                    onClick: (data: any) => {
+                                        if (data && data.activePayload && data.activePayload[0]) {
+                                            const point = data.activePayload[0].payload;
+                                            notifications.show({
+                                                title: `${point.date} 상세 현황`,
+                                                message: `매출: ${point['매출'].toLocaleString()}원 / 환불: ${point['환불'].toLocaleString()}원`,
+                                                color: 'indigo',
+                                                icon: <IconTrendingUp size={16} />
+                                            });
+                                        }
+                                    }
+                                })}
                             />
+                        ) : (
+                            <Center h={300}>
+                                <Stack align="center" gap="xs">
+                                    <IconDatabaseOff size={40} style={{ opacity: 0.2 }} />
+                                    <Text c="dimmed" size="sm">해당 기간의 매출 추이 데이터가 없습니다.</Text>
+                                </Stack>
+                            </Center>
                         )}
                     </Paper>
                 </Grid.Col>
                 <Grid.Col span={{ base: 12, md: 4 }}>
                     <Paper shadow="sm" radius="md" p="lg" withBorder h="100%">
                         <Text fw={700} size="lg" mb="md">결제 수단별 비중</Text>
-                        {isPaymentLoading ? <Center h={180}><Skeleton circle w={180} h={180} /></Center> : (
+                        {isPaymentLoading ? <Center h={180}><Skeleton circle w={180} h={180} /></Center> : chartPaymentData.length > 0 ? (
                             <Group justify="center" mb="xl">
                                 <DonutChart
                                     size={180}
@@ -191,6 +218,13 @@ export default function FinanceStatsPage() {
                                     tooltipDataSource="segment"
                                 />
                             </Group>
+                        ) : (
+                            <Center h={180} mb="xl">
+                                <Stack align="center" gap="xs">
+                                    <IconCreditCard size={40} style={{ opacity: 0.2 }} />
+                                    <Text c="dimmed" size="sm">결제 수단 데이터 없음</Text>
+                                </Stack>
+                            </Center>
                         )}
                         <Stack gap="xs" mt="md">
                             {chartPaymentData.map((item) => (
@@ -227,31 +261,39 @@ export default function FinanceStatsPage() {
                                 </Table.Tr>
                             </Table.Thead>
                             <Table.Tbody>
-                                {transactionsData?.list.map((tx) => (
-                                    <Table.Tr key={tx.id}>
-                                        <Table.Td>{dayjs(tx.paidAt).format('YYYY-MM-DD HH:mm')}</Table.Td>
-                                        <Table.Td fw={500}>{tx.productName}</Table.Td>
-                                        <Table.Td>{tx.memberName}</Table.Td>
-                                        <Table.Td>
-                                            <Badge variant="dot" color={PAYMENT_METHOD_COLORS[tx.method as PaymentMethod]?.split('.')[0] || 'gray'}>
-                                                {PAYMENT_METHOD_LABELS[tx.method as PaymentMethod] || tx.method}
-                                            </Badge>
-                                        </Table.Td>
-                                        <Table.Td style={{ textAlign: 'right' }}>{tx.amount.toLocaleString()}원</Table.Td>
-                                        <Table.Td style={{ textAlign: 'center' }}>
-                                            <Badge
-                                                size="sm"
-                                                variant="light"
-                                                color={tx.status === 'PAID' ? 'green' : 'red'}
-                                            >
-                                                {tx.status === 'PAID' ? '결제완료' : '환불완료'}
-                                            </Badge>
-                                        </Table.Td>
-                                    </Table.Tr>
-                                ))}
-                                {transactionsData?.list.length === 0 && (
+                                {transactionsData?.list && transactionsData.list.length > 0 ? (
+                                    transactionsData.list.map((tx) => (
+                                        <Table.Tr key={tx.id}>
+                                            <Table.Td>{dayjs(tx.paidAt).format('YYYY-MM-DD HH:mm')}</Table.Td>
+                                            <Table.Td fw={500}>{tx.productName}</Table.Td>
+                                            <Table.Td>{tx.memberName}</Table.Td>
+                                            <Table.Td>
+                                                <Badge variant="dot" color={PAYMENT_METHOD_COLORS[tx.method as PaymentMethod]?.split('.')[0] || 'gray'}>
+                                                    {PAYMENT_METHOD_LABELS[tx.method as PaymentMethod] || tx.method}
+                                                </Badge>
+                                            </Table.Td>
+                                            <Table.Td style={{ textAlign: 'right' }}>{tx.amount.toLocaleString()}원</Table.Td>
+                                            <Table.Td style={{ textAlign: 'center' }}>
+                                                <Badge
+                                                    size="sm"
+                                                    variant="light"
+                                                    color={tx.status === 'PAID' ? 'green' : 'red'}
+                                                >
+                                                    {tx.status === 'PAID' ? '결제완료' : '환불완료'}
+                                                </Badge>
+                                            </Table.Td>
+                                        </Table.Tr>
+                                    ))
+                                ) : (
                                     <Table.Tr>
-                                        <Table.Td colSpan={6} align="center" py="xl" c="dimmed">매출 내역이 없습니다.</Table.Td>
+                                        <Table.Td colSpan={6}>
+                                            <Center py={60}>
+                                                <Stack align="center" gap="xs">
+                                                    <IconDatabaseOff size={40} style={{ opacity: 0.2 }} />
+                                                    <Text c="dimmed" fw={500}>해당 기간의 상세 매출 내역이 없습니다.</Text>
+                                                </Stack>
+                                            </Center>
+                                        </Table.Td>
                                     </Table.Tr>
                                 )}
                             </Table.Tbody>

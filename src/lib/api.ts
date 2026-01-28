@@ -133,7 +133,11 @@ export interface Payment {
     membershipId: string; // FIXED: String -> string
     memberName: string;
     productName: string;
-    amount: number;
+    amount: number;       // Paid amount
+    totalAmount?: number;
+    discountAmount?: number;
+    unpaidAmount?: number;
+    unpaidDueDate?: string;
     method: PaymentMethod;
     status: PaymentStatus;
     paidAt: string;
@@ -180,12 +184,23 @@ export interface AddTicketCountCommand {
 }
 
 export interface CreatePaymentCommand {
-    membershipId: string;    // FIXED: String -> string
-    productId: string;       // FIXED: String -> string
+    membershipId: string;
+    productId: string;
     amount: number;
+    totalAmount: number;
+    discountAmount?: number;
+    unpaidAmount?: number;
+    unpaidDueDate?: string;
     method: PaymentMethod;
     linkedTicketId?: string | null;
     autoIssue?: boolean;
+}
+
+export interface PaymentQuery {
+    startDate?: string;
+    endDate?: string;
+    hasUnpaid?: boolean;
+    search?: string;
 }
 
 export interface RefundResult {
@@ -427,7 +442,7 @@ export interface InstructorDto {
     gender: 'MALE' | 'FEMALE';
     birthDate?: string;
     memo?: string;
-    joinedAt?: string;
+    approvedAt?: string;
     createdAt?: string;
 }
 
@@ -632,9 +647,9 @@ export const paymentApi = {
         return response.data.data;
     },
 
-    // Get all payments
-    getAll: async () => {
-        const response = await api.get<ApiResponse<Payment[]>>('/finance/payments');
+    // Get all payments with optional filtering
+    getAll: async (params?: PaymentQuery) => {
+        const response = await api.get<ApiResponse<Payment[]>>('/finance/payments', { params });
         return response.data.data;
     },
 
@@ -845,10 +860,10 @@ export const financeKeys = {
     products: ['products'] as const,
 };
 
-export function usePayments(options?: Omit<UseQueryOptions<Payment[], Error>, 'queryKey' | 'queryFn'>) {
+export function usePayments(query?: PaymentQuery, options?: Omit<UseQueryOptions<Payment[], Error>, 'queryKey' | 'queryFn'>) {
     return useQuery({
-        queryKey: financeKeys.payments,
-        queryFn: paymentApi.getAll,
+        queryKey: query ? [...financeKeys.payments, query] : financeKeys.payments,
+        queryFn: () => paymentApi.getAll(query),
         staleTime: 1 * 60 * 1000,
         ...options
     });

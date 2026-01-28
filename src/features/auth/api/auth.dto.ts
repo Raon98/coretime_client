@@ -121,5 +121,5 @@ export interface InstructorDto {
     phone: string;
     status: 'ACTIVE' | 'PENDING_APPROVAL' | 'INACTIVE' | 'WITHDRAWN';
     profileImageUrl?: string | null;
-    joinedAt?: string;
+    approvedAt?: string;
 }

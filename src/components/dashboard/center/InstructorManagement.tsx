@@ -120,8 +120,8 @@ export default function InstructorManagement({
                                         <Table.Td>{instructor.phone}</Table.Td>
                                         <Table.Td>
                                             <Text size="sm">
-                                                {instructor.joinedAt
-                                                    ? formatDistance(new Date(instructor.joinedAt), new Date(), {
+                                                {instructor.approvedAt
+                                                    ? formatDistance(new Date(instructor.approvedAt), new Date(), {
                                                         addSuffix: true,
                                                         locale: ko
                                                     })
