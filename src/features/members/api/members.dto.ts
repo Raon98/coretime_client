@@ -11,6 +11,7 @@ export interface MemberDto {
     createdAt: string; // ISO Date
     lastAttendanceAt?: string; // ISO Date
     pinnedNote?: string;
+    profileImageUrl?: string | null;
 }
 
 export interface RegisterMemberCommand {

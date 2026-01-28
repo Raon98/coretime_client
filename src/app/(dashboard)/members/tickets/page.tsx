@@ -56,13 +56,13 @@ export default function TicketManagementPage() {
     const [editValue, setEditValue] = useState<number | Date | null>(null);
 
     // Stats
-    const expiringSoon = tickets.filter(t => {
+    const expiringSoon = tickets.filter((t: MemberTicketResult) => {
         const diff = dayjs(t.endDate).diff(dayjs(), 'day');
         return t.status === 'ACTIVE' && diff <= 7 && diff >= 0;
     }).length;
 
-    const lowBalance = tickets.filter(t => t.status === 'ACTIVE' && t.remainingCount <= 3).length;
-    const pausedCount = tickets.filter(t => t.status === 'PAUSED').length;
+    const lowBalance = tickets.filter((t: MemberTicketResult) => t.status === 'ACTIVE' && t.remainingCount <= 3).length;
+    const pausedCount = tickets.filter((t: MemberTicketResult) => t.status === 'PAUSED').length;
 
     const getMemberName = (id: string | number) => members.find(m => String(m.id) === String(id))?.name || 'Unknown';
 
@@ -72,7 +72,7 @@ export default function TicketManagementPage() {
     const [sortOrder, setSortOrder] = useState<string>('NAME_ASC');
 
     const filteredTickets = useMemo(() => {
-        return tickets.filter(t => {
+        return tickets.filter((t: MemberTicketResult) => {
             if (filterType === 'EXPIRING') {
                 const diff = dayjs(t.endDate).diff(dayjs(), 'day');
                 if (!(t.status === 'ACTIVE' && diff <= 7 && diff >= 0)) return false;
@@ -86,7 +86,7 @@ export default function TicketManagementPage() {
             if (search && !memberName.includes(search)) return false;
 
             return true;
-        }).sort((a, b) => {
+        }).sort((a: MemberTicketResult, b: MemberTicketResult) => {
             if (sortOrder === 'NAME_ASC') {
                 return getMemberName(a.memberId).localeCompare(getMemberName(b.memberId));
             } else if (sortOrder === 'REG_DESC') {
@@ -133,12 +133,7 @@ export default function TicketManagementPage() {
         });
     };
 
-    // --- Action Handlers ---
 
-    // --- Queries & Mutations ---
-    // (Hooks moved to top)
-
-    // Mutations
     const issueMutation = useMutation({
         mutationFn: (data: IssueTicketCommand) => memberTicketApi.issueTicket(data),
         onSuccess: () => {
@@ -269,7 +264,7 @@ export default function TicketManagementPage() {
             <Title order={2} mb="lg">수강권 현황</Title>
 
             {/* Top Cards (Clickable) */}
-            <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg" mb="xl">
+            {/* <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg" mb="xl">
                 <StatCard
                     label="만료 예정 (7일 이내)"
                     value={expiringSoon}
@@ -294,7 +289,7 @@ export default function TicketManagementPage() {
                     active={filterType === 'PAUSED'}
                     onClick={() => setFilterType(filterType === 'PAUSED' ? 'ALL' : 'PAUSED')}
                 />
-            </SimpleGrid>
+            </SimpleGrid> */}
 
             {/* Controls */}
             <Group mb="md" justify="space-between">
@@ -355,7 +350,7 @@ export default function TicketManagementPage() {
                         </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
-                        {filteredTickets.map((t) => {
+                        {filteredTickets.map((t: MemberTicketResult) => {
                             const daysLeft = dayjs(t.endDate).diff(dayjs(), 'day');
                             const isExpiring = daysLeft <= 7 && daysLeft >= 0;
                             const percent = (t.remainingCount / t.totalCount) * 100;

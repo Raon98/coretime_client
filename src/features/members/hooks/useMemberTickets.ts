@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, UseQueryOptions } from '@tanstack/react-query';
 import { memberTicketsApi } from '../api/tickets.api';
 import { IssueTicketCommand } from '../api/members.dto';
 import { notifications } from '@mantine/notifications';
@@ -9,12 +9,13 @@ export const ticketKeys = {
     byMember: (memberId: string) => [...ticketKeys.lists(), memberId] as const,
 };
 
-export function useMemberTickets(memberId?: string) {
+export function useMemberTickets(memberId?: string, options?: Omit<UseQueryOptions<any, Error>, 'queryKey' | 'queryFn'>) {
     return useQuery({
         queryKey: memberId ? ticketKeys.byMember(memberId) : ticketKeys.lists(),
         queryFn: () => memberId ? memberTicketsApi.getTicketsByMember(memberId) : memberTicketsApi.getTickets(),
-        // If memberId is NOT provided, it fetches ALL tickets (context behavior). 
-        // If memberId IS provided, it fetches specific.
+        // If memberId is NOT provided, it fetches ALL tickets.
+        // Use options.enabled to control this if needed.
+        ...options
     });
 }
 

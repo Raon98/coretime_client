@@ -7,7 +7,7 @@ import { notifications } from '@mantine/notifications';
 export const memberKeys = {
     all: ['members'] as const,
     lists: () => [...memberKeys.all, 'list'] as const,
-    list: (filters: string) => [...memberKeys.lists(), { filters }] as const,
+    list: (filters: any) => [...memberKeys.lists(), { filters }] as const,
     details: () => [...memberKeys.all, 'detail'] as const,
     detail: (id: string) => [...memberKeys.details(), id] as const,
 };
@@ -17,19 +17,25 @@ function mapDtoToMember(dto: MemberDto): Member {
         id: String(dto.id), // Ensure string ID
         name: dto.name,
         phone: dto.phone,
-        gender: dto.gender || 'FEMALE', // Default or handle optional
+        gender: dto.gender || 'FEMALE',
         status: (dto.status as any) || 'ACTIVE',
         registeredAt: new Date(dto.createdAt),
         lastAttendanceAt: dto.lastAttendanceAt ? new Date(dto.lastAttendanceAt) : undefined,
         pinnedNote: dto.pinnedNote,
+        profileImageUrl: dto.profileImageUrl,
     };
 }
 
-export function useMembers(status?: string) {
+export interface MemberFilters {
+    status?: string | string[];
+    search?: string;
+}
+
+export function useMembers(filters?: MemberFilters) {
     return useQuery({
-        queryKey: memberKeys.list(status || 'ALL'),
+        queryKey: memberKeys.list(filters),
         queryFn: async () => {
-            const dtos = await membersApi.getMembers(status);
+            const dtos = await membersApi.getMembers(filters?.status, filters?.search);
             return dtos.map(mapDtoToMember);
         },
         staleTime: 1000 * 60 * 5, // 5 mins

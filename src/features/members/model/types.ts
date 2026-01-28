@@ -1,7 +1,7 @@
 import { TSID } from '@/lib/mock-data';
 export type { TSID };
 
-export type MemberStatus = 'ACTIVE' | 'DORMANT' | 'EXPIRED' | 'PENDING';
+export type MemberStatus = 'ACTIVE' | 'DORMANT' | 'EXPIRED' | 'PENDING' | 'INACTIVE' | 'PENDING_APPROVAL' | 'WITHDRAWN' | 'REJECTED';
 
 export interface Member {
     id: TSID;
@@ -13,6 +13,7 @@ export interface Member {
     registeredAt: Date;
     lastAttendanceAt?: Date;
     pinnedNote?: string; // High priority note
+    profileImageUrl?: string | null;
 }
 
 export interface Ticket {
