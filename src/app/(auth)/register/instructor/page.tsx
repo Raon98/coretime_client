@@ -17,6 +17,7 @@ export default function RegisterInstructorPage() {
 
     // Success Modal
     const [successOpened, { open: openSuccess, close: closeSuccess }] = useDisclosure(false);
+    const [pendingOpened, { open: openPending, close: closePending }] = useDisclosure(false);
 
     // Search related state
     const [opened, { open, close }] = useDisclosure(false);
@@ -247,9 +248,42 @@ export default function RegisterInstructorPage() {
                 </Stack>
             </Modal>
 
-            {/* Pending Approval Success Modal */}
+            {/* 코드입력 후 센터 가입 바로 성공*/}
             <Modal
                 opened={successOpened}
+                onClose={() => window.location.href = '/'}
+                withCloseButton={false}
+                centered
+                size="md"
+                padding="xl"
+                radius="md"
+            >
+                <Stack align="center" gap="md">
+                    <ThemeIcon size={64} radius="full" color="green" variant="light">
+                        <IconCheck size={32} />
+                    </ThemeIcon>
+
+                    <Title order={3} ta="center">가입 완료</Title>
+
+                    <Text c="dimmed" ta="center" size="sm">
+                        센터 가입 신청이 성공적으로 완료되었습니다.
+                    </Text>
+
+                    <Button
+                        fullWidth
+                        size="md"
+                        mt="md"
+                        onClick={() => window.location.href = '/'}
+                        color="green"
+                    >
+                        확인
+                    </Button>
+                </Stack>
+            </Modal>
+
+            {/* 가입 대기 상태 모달창*/}
+            <Modal
+                opened={pendingOpened}
                 onClose={() => window.location.href = '/login'}
                 withCloseButton={false}
                 centered
