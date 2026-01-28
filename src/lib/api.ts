@@ -421,9 +421,23 @@ export interface InstructorDto {
     name: string;
     email: string;
     phone: string;
-    status: 'ACTIVE' | 'PENDING_APPROVAL' | 'INACTIVE' | 'WITHDRAWN';
+    identity: 'INSTRUCTOR';
+    status: 'ACTIVE' | 'PENDING_APPROVAL' | 'INACTIVE' | 'WITHDRAWN' | 'REJECTED';
     profileImageUrl?: string | null;
+    gender: 'MALE' | 'FEMALE';
+    birthDate?: string;
+    memo?: string;
     joinedAt?: string;
+    createdAt?: string;
+}
+
+export interface RegisterInstructorCommand {
+    name: string;
+    phone: string;
+    email?: string;
+    gender: 'MALE' | 'FEMALE';
+    birthDate?: string;
+    memo?: string;
 }
 
 // --- API Functions ---
@@ -500,6 +514,10 @@ export const authApi = {
     },
 
     // 5. Instructor Management (HR)
+    registerInstructor: async (command: RegisterInstructorCommand) => {
+        const response = await api.post<ApiResponse<InstructorDto>>('/management/instructors/register', command);
+        return response.data.data;
+    },
     getActiveInstructors: async () => {
         const response = await api.get<ApiResponse<InstructorDto[]>>('/management/instructors');
         return response.data.data;

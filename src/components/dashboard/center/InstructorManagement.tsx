@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import dayjs from 'dayjs';
 import {
     Title,
     Text,
@@ -18,6 +19,7 @@ import {
     Loader
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
+import { IMaskInput } from 'react-imask';
 import {
     IconUserCheck,
     IconUserX,
@@ -66,7 +68,10 @@ export default function InstructorManagement({
     });
 
     const handleFormSubmit = (values: typeof form.values) => {
-        onRegister(values);
+        onRegister({
+            ...values,
+            birthDate: values.birthDate ? dayjs(values.birthDate).format('YYYY-MM-DD') : undefined
+        });
         form.reset();
     };
 
@@ -184,6 +189,8 @@ export default function InstructorManagement({
                                             {...form.getInputProps('name')}
                                         />
                                         <TextInput
+                                            component={IMaskInput}
+                                            {...({ mask: "000-0000-0000" } as any)}
                                             label="연락처"
                                             placeholder="010-0000-0000"
                                             required

@@ -82,22 +82,22 @@ export default function InstructorManagementPage() {
         }
     });
 
-    // Mock Register Mutation (Since explicit API endpoint for admin-create-instructor is missing in provided snippets)
     const registerMutation = useMutation({
-        mutationFn: async (data: any) => {
-            // Simulator: In real app, this would be POST /management/instructors or similar
-            // For now, we simulate a delay and success
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            return data;
-        },
+        mutationFn: (data: any) => authApi.registerInstructor(data),
         onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['instructors'] });
             notifications.show({
                 title: '등록 완료',
                 message: '강사가 성공적으로 등록되었습니다.',
                 color: 'green'
             });
-            // Invalidate triggers refetch, but since it's mock, we might not see it unless we manually add to cache or if API actually existed.
-            // Assuming for UI demo purposes.
+        },
+        onError: (error: any) => {
+            notifications.show({
+                title: '오류',
+                message: error.response?.data?.error?.message || '강사 등록 중 오류가 발생했습니다',
+                color: 'red'
+            });
         }
     });
 

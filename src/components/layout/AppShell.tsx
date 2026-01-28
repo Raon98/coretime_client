@@ -19,7 +19,7 @@ import {
 } from '@tabler/icons-react';
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { useAuth, UserRole } from '@/features/auth';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { authApi, useMyOrganizations, OrganizationResult } from '@/lib/api'; // Added useMyOrganizations
 import { AppShellSkeleton } from '@/components/layout/AppShellSkeleton';
@@ -131,6 +131,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const { user, logout, isLoading: isAuthLoading, refreshUser } = useAuth();
     const pathname = usePathname();
     const router = useRouter();
+    const searchParams = useSearchParams();
+
+    // Reconstruct current path with query params for accurate navbar highlighting
+    const currentFullLink = useMemo(() => {
+        const query = searchParams.toString();
+        return query ? `${pathname}?${query}` : pathname;
+    }, [pathname, searchParams]);
 
     // Fetch Organizations using React Query
     // Use manual query hook or just rely on the one imported
@@ -372,7 +379,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 <NavLink
                                     key={child.label}
                                     label={child.label}
-                                    active={pathname === child.link}
+                                    active={currentFullLink === child.link}
                                     onClick={() => router.push(child.link)}
                                     style={{ borderRadius: '8px', fontSize: '14px', fontWeight: 400 }}
                                 />
