@@ -13,7 +13,7 @@ import {
     IconEdit, IconUserPlus, IconTicket, IconNote, IconPhone,
     IconDeviceMobileMessage
 } from '@tabler/icons-react';
-import { useMembers, Member } from '@/context/MemberContext';
+import { useMembers, useMemberTickets, Member } from '@/features/members';
 import { useState, useMemo } from 'react';
 import dayjs from 'dayjs';
 import MemberFormModal from '@/components/dashboard/members/MemberFormModal';
@@ -27,7 +27,17 @@ export default function MemberListPage() {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<string[]>([]);
 
-    // Use Real API Hook
+    // Use Real API Hook via feature hook or direct query if custom params needed
+    // The feature hook `useMembers` takes a status string, but here we have array/search.
+    // We can keep the custom query here OR update the hook.
+    // For now, let's keep the custom query pattern consistent with what's already there, 
+    // BUT we must remove the `useMembers()` call from context.
+
+    // Actually, line 31-37 in original file is using manual useQuery with memberApi.
+    // I should probably switch to `useMembers` hook if it supports these filters, or keep manually if not.
+    // The hook `useMembers` only takes `status` string.
+    // The manually written query handles search and multi-status.
+
     const { data: members = [], isLoading } = useQuery({
         queryKey: ['members', { search, statusFilter }],
         queryFn: () => memberApi.getMembers({
@@ -37,7 +47,7 @@ export default function MemberListPage() {
     });
 
     // Mock tickets needed temporarily for display compatibility
-    const { tickets } = useMembers();
+    const { data: tickets = [] } = useMemberTickets();
 
     // UI States
     const [selectedMember, setSelectedMember] = useState<any | null>(null); // Relaxed type for transition
@@ -157,7 +167,7 @@ export default function MemberListPage() {
                                         <Table.Td>{member.phone}</Table.Td>
                                         <Table.Td>
                                             {memberTicket ? (
-                                                <Text size="sm">{memberTicket.name} ({memberTicket.remainingCount}회)</Text>
+                                                <Text size="sm">{memberTicket.ticketName} ({memberTicket.remainingCount}회)</Text>
                                             ) : (
                                                 <Text size="sm" c="dimmed">-</Text>
                                             )}
@@ -242,7 +252,7 @@ function MemberDrawer({
     onSendAlimTalk: () => void
 }) {
     const queryClient = useQueryClient();
-    const { tickets } = useMembers();
+    const { data: tickets = [] } = useMemberTickets();
 
     const noteMutation = useMutation({
         mutationFn: async ({ id, note }: { id: string, note: string }) => {
@@ -372,7 +382,7 @@ function MemberDrawer({
                             {memberTickets.length > 0 ? memberTickets.map(ticket => (
                                 <Card key={ticket.id} withBorder radius="md">
                                     <Group justify="space-between" mb="xs">
-                                        <Text fw={600} size="sm">{ticket.name}</Text>
+                                        <Text fw={600} size="sm">{ticket.ticketName}</Text>
                                         <Badge size="sm" variant="dot" color={ticket.status === 'ACTIVE' ? 'green' : 'gray'}>
                                             {ticket.status}
                                         </Badge>

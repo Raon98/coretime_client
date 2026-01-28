@@ -12,7 +12,6 @@ import {
     IconClockPlay, IconSearch, IconFilter, IconDownload,
     IconSortDescending, IconCheck, IconCreditCard, IconReceipt, IconCurrencyWon, IconUser
 } from '@tabler/icons-react';
-import { useMembers, Member } from '@/context/MemberContext'; // useMembers kept for local helper if needed
 import { notifications } from '@mantine/notifications';
 import { useState, useMemo, useEffect } from 'react';
 import dayjs from 'dayjs';
@@ -21,11 +20,13 @@ import { useDisclosure } from '@mantine/hooks';
 import { useRouter } from 'next/navigation';
 import {
     useMemberTickets,
-    useMembersList,
+    useMembers,
+    MemberTicketResult,
+} from '@/features/members';
+import {
     memberTicketApi,
     memberTicketKeys,
     IssueTicketCommand,
-    MemberTicketResult,
     useAvailablePayments
 } from '@/lib/api';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -35,7 +36,7 @@ export default function TicketManagementPage() {
 
     const queryClient = useQueryClient();
     const { data: tickets = [], isLoading } = useMemberTickets();
-    const { data: members = [] } = useMembersList();
+    const { data: members = [] } = useMembers(); // Use feature hook
     // Removed general payments hook
 
     const [registerOpened, { open: openRegister, close: closeRegister }] = useDisclosure(false);
@@ -63,7 +64,7 @@ export default function TicketManagementPage() {
     const lowBalance = tickets.filter(t => t.status === 'ACTIVE' && t.remainingCount <= 3).length;
     const pausedCount = tickets.filter(t => t.status === 'PAUSED').length;
 
-    const getMemberName = (id: string) => members.find(m => String(m.id) === String(id))?.name || 'Unknown';
+    const getMemberName = (id: string | number) => members.find(m => String(m.id) === String(id))?.name || 'Unknown';
 
     // --- Filtering & Sorting ---
     const [filterType, setFilterType] = useState<string | null>('ALL');
@@ -81,13 +82,13 @@ export default function TicketManagementPage() {
                 if (t.status !== 'PAUSED') return false;
             }
 
-            const memberName = getMemberName(t.membershipId);
+            const memberName = getMemberName(t.memberId);
             if (search && !memberName.includes(search)) return false;
 
             return true;
         }).sort((a, b) => {
             if (sortOrder === 'NAME_ASC') {
-                return getMemberName(a.membershipId).localeCompare(getMemberName(b.membershipId));
+                return getMemberName(a.memberId).localeCompare(getMemberName(b.memberId));
             } else if (sortOrder === 'REG_DESC') {
                 return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
             } else if (sortOrder === 'REMAINING_ASC') {
@@ -246,12 +247,12 @@ export default function TicketManagementPage() {
         if (editMode === 'ADD_COUNT') {
             const addAmt = Number(editValue);
             if (addAmt <= 0) return;
-            addCountMutation.mutate({ id: selectedTicket.id, count: addAmt });
+            addCountMutation.mutate({ id: String(selectedTicket.id), count: addAmt });
         } else {
             // EXTEND
             const newDate = editValue as Date;
             extendMutation.mutate({
-                id: selectedTicket.id,
+                id: String(selectedTicket.id),
                 endDate: dayjs(newDate).format('YYYY-MM-DD')
             });
         }
@@ -362,7 +363,7 @@ export default function TicketManagementPage() {
                             return (
                                 <Table.Tr key={t.id}>
                                     <Table.Td>
-                                        <Text fw={500} size="sm">{getMemberName(t.membershipId)}</Text>
+                                        <Text fw={500} size="sm">{getMemberName(t.memberId)}</Text>
                                     </Table.Td>
                                     <Table.Td>
                                         <Group gap="xs">
@@ -410,7 +411,7 @@ export default function TicketManagementPage() {
                                                 {t.status === 'ACTIVE' && (
                                                     <Menu.Item
                                                         leftSection={<IconPlayerPause size={14} />}
-                                                        onClick={() => handlePauseToggle(t.id, true)}
+                                                        onClick={() => handlePauseToggle(String(t.id), true)}
                                                     >
                                                         일시 정지
                                                     </Menu.Item>
@@ -418,7 +419,7 @@ export default function TicketManagementPage() {
                                                 {t.status === 'PAUSED' && (
                                                     <Menu.Item
                                                         leftSection={<IconPlayerPause size={14} />}
-                                                        onClick={() => handlePauseToggle(t.id, false)}
+                                                        onClick={() => handlePauseToggle(String(t.id), false)}
                                                     >
                                                         정지 해제
                                                     </Menu.Item>
@@ -578,7 +579,7 @@ export default function TicketManagementPage() {
                 {selectedTicket && (
                     <>
                         <Text size="sm" mb="md" c="dimmed">
-                            {getMemberName(selectedTicket.membershipId)}님 - {selectedTicket.ticketName}
+                            {getMemberName(selectedTicket.memberId)}님 - {selectedTicket.ticketName}
                         </Text>
 
                         {editMode === 'ADD_COUNT' ? (

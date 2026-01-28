@@ -14,7 +14,8 @@ import {
 } from '@tabler/icons-react';
 import { useState, useMemo } from 'react';
 import dayjs from 'dayjs';
-import { RESERVATIONS, CLASSES, Reservation, TSID } from '@/lib/mock-data';
+import { RESERVATIONS, CLASSES } from '@/features/schedule/model/mock-data';
+import { Reservation, TSID } from '@/features/schedule';
 import { useMembers, Member } from '@/features/members';
 import AlimTalkModal from '@/components/dashboard/members/AlimTalkModal';
 import { notifications } from '@mantine/notifications';
