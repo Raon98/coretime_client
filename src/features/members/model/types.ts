@@ -1,4 +1,5 @@
 import { TSID } from '@/lib/mock-data';
+export type { TSID };
 
 export type MemberStatus = 'ACTIVE' | 'DORMANT' | 'EXPIRED' | 'PENDING';
 
@@ -25,12 +26,16 @@ export interface Ticket {
     status: 'ACTIVE' | 'PAUSED' | 'EXPIRED';
 }
 
+export type ConsultationCategory = 'GENERAL' | 'RE_REGISTRATION' | 'COMPLAINT' | 'PHYSICAL' | 'OTHER';
+
 export interface ConsultationLog {
     id: TSID;
-    memberId: TSID;
-    instructorId: TSID; // Who wrote it
-    instructorName: string; // Denormalized for display
-    date: Date;
+    membershipId: TSID; // Changed from memberId to align with API
+    operatorAccountId: TSID;
+    // instructorName: string; // Removed, will need to be resolved from operatorAccountId if needed, or kept if UI requires it and we mock/fetch it
+    category: ConsultationCategory;
     content: string;
-    tags: string[]; // ["#renewal", "#pain"]
+    tags: string[]; // Converted from string "#tag,#tag"
+    consultedAt: Date;
+    createdAt: Date;
 }
