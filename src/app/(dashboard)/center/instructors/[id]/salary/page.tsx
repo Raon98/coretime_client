@@ -69,21 +69,24 @@ const typeInfo: Record<string, { label: string; color: string; icon: typeof Icon
 };
 
 export default function InstructorSalaryPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = use(params);
-    const membershipId = Number(id);
+    const { id: membershipId } = use(params);
     const queryClient = useQueryClient();
     const router = useRouter();
     const [opened, { open, close }] = useDisclosure(false);
 
-    // Fetch History (Active will be derived from here)
-    const { data: configHistory, isLoading: isHistoryLoading } = useQuery({
-        queryKey: ['salary', 'config', 'history', membershipId],
-        queryFn: () => salaryApi.getConfigs(membershipId),
-        initialData: [],
-        enabled: !isNaN(membershipId) && membershipId > 0
+    // Fetch Active Config explicitly
+    const { data: activeConfig, isLoading: isActiveLoading } = useQuery({
+        queryKey: ['salary', 'config', 'active', membershipId],
+        queryFn: () => salaryApi.getActiveConfig(membershipId),
+        enabled: !!membershipId
     });
 
-    const activeConfig = configHistory?.find(c => c.isActive);
+    // Fetch History
+    const { data: configHistory = [], isLoading: isHistoryLoading } = useQuery({
+        queryKey: ['salary', 'config', 'history', membershipId],
+        queryFn: () => salaryApi.getConfigs(membershipId),
+        enabled: !!membershipId
+    });
 
     // Create Config Mutation
     const createMutation = useMutation({
@@ -95,6 +98,7 @@ export default function InstructorSalaryPage({ params }: { params: Promise<{ id:
                 color: 'teal',
                 icon: <IconCheck size={18} />,
             });
+            // Invalidate both active and history
             queryClient.invalidateQueries({ queryKey: ['salary', 'config'] });
             close();
             form.reset();
@@ -124,7 +128,7 @@ export default function InstructorSalaryPage({ params }: { params: Promise<{ id:
 
     const handleSubmit = (values: typeof form.values) => {
         createMutation.mutate({
-            membershipId,
+            membershipId: membershipId as any, // Cast for API compat if needed, but we updated lib/api
             ...values,
             effectiveFrom: dayjs(values.effectiveFrom).format('YYYY-MM-DD'),
         });
@@ -132,7 +136,7 @@ export default function InstructorSalaryPage({ params }: { params: Promise<{ id:
 
     const activeInfo = activeConfig ? typeInfo[activeConfig.salaryType] : null;
 
-    if (isNaN(membershipId)) {
+    if (!membershipId) {
         return (
             <Container size="md" py="xl">
                 <Alert color="red" title="잘못된 요청">
@@ -156,7 +160,7 @@ export default function InstructorSalaryPage({ params }: { params: Promise<{ id:
                     <Text c="dimmed" size="sm" ml={32}>강사의 정산 모델을 관리하고 이력을 확인합니다.</Text>
                 </Stack>
 
-                <Button
+                {/* <Button
                     variant="light"
                     color="indigo"
                     leftSection={<IconPlus size={16} />}
@@ -172,7 +176,7 @@ export default function InstructorSalaryPage({ params }: { params: Promise<{ id:
                     }}
                 >
                     새 정산 모델 등록
-                </Button>
+                </Button> */}
             </Group>
 
             <Grid gutter="xl">

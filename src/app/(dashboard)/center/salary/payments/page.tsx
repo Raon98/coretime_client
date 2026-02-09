@@ -95,9 +95,28 @@ export default function SalaryPaymentsPage() {
         }
     });
 
+    const approveMutation = useMutation({
+        mutationFn: (paymentId: string | number) => salaryApi.approvePayment(paymentId),
+        onSuccess: () => {
+            notifications.show({
+                title: '승인 완료',
+                message: '급여 지급 건이 성공적으로 승인되었습니다.',
+                color: 'teal',
+            });
+            queryClient.invalidateQueries({ queryKey: ['salary', 'payments'] });
+        },
+        onError: () => {
+            notifications.show({
+                title: '승인 실패',
+                message: '지급 건 승인 중 오류가 발생했습니다.',
+                color: 'red',
+            });
+        }
+    });
+
     const form = useForm({
         initialValues: {
-            instructorId: '' as string | null, // Changed to string for Select compatibility
+            instructorId: '' as string, // String for Large ID support
             month: dayjs().toDate(),
             adjustmentAmount: 0,
             memo: '',
@@ -111,7 +130,7 @@ export default function SalaryPaymentsPage() {
     const handleSubmit = (values: typeof form.values) => {
         if (!values.instructorId) return;
         createMutation.mutate({
-            instructorMembershipId: Number(values.instructorId),
+            instructorMembershipId: values.instructorId, // Pass as string directly
             month: dayjs(values.month).format('YYYY-MM'),
         });
     };
@@ -230,7 +249,13 @@ export default function SalaryPaymentsPage() {
                                                 </ActionIcon>
                                             </Menu.Target>
                                             <Menu.Dropdown>
-                                                <Menu.Item leftSection={<IconCheck size={14} />}>승인</Menu.Item>
+                                                <Menu.Item
+                                                    leftSection={<IconCheck size={14} />}
+                                                    onClick={() => approveMutation.mutate(payment.id)}
+                                                    disabled={payment.status !== 'PENDING'}
+                                                >
+                                                    승인
+                                                </Menu.Item>
                                                 <Menu.Item leftSection={<IconReceipt size={14} />}>영수증 보기</Menu.Item>
                                                 <Menu.Divider />
                                                 <Menu.Item leftSection={<IconX size={14} />} color="red">취소</Menu.Item>
@@ -261,7 +286,7 @@ export default function SalaryPaymentsPage() {
                             placeholder="강사를 선택해주세요"
                             data={instructors?.map(i => ({ value: String(i.membershipId), label: i.name })) || []}
                             value={form.values.instructorId}
-                            onChange={(val) => form.setFieldValue('instructorId', val)}
+                            onChange={(val) => form.setFieldValue('instructorId', val || '')}
                             searchable
                             nothingFoundMessage="강사가 없습니다."
                             required

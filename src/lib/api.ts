@@ -664,20 +664,20 @@ export const instructorApi = {
     // Standard list for all instructors
     getInstructors: async (params?: { search?: string, status?: string }) => {
         const response = await api.get<ApiResponse<Instructor[]>>('/management/instructors', { params });
-        return response.data.data;
+        return response.data.data || [];
     },
     // Standard get single
     getInstructor: async (membershipId: string | number) => {
         const response = await api.get<ApiResponse<Instructor>>(`/management/instructors/${membershipId}`);
-        return response.data.data;
+        return response.data.data || null;
     },
     getActiveInstructors: async () => {
         const response = await api.get<ApiResponse<Instructor[]>>('/management/instructors');
-        return response.data.data;
+        return response.data.data || [];
     },
     getPendingInstructors: async () => {
         const response = await api.get<ApiResponse<Instructor[]>>('/management/pending-instructors');
-        return response.data.data;
+        return response.data.data || [];
     },
     // Approve/Reject Join Request
     updateMembershipStatus: async (membershipId: string | number, isApproved: boolean) => {
@@ -1275,7 +1275,7 @@ export interface SalaryConfigHistory {
 }
 
 export interface CreateSalaryConfigCommand {
-    membershipId: number;
+    membershipId: string | number;
     salaryType: SalaryType;
     baseAmount: number;
     effectiveFrom: string;
@@ -1317,14 +1317,14 @@ export interface SalaryPayment {
     finalPaymentAmount: number;
     status: SalaryPaymentStatus;
     adjustmentAmount: number;
-    instructorMembershipId?: number; // Optional helper
+    instructorMembershipId?: string | number; // Optional helper
     instructorName?: string; // Optional helper
     createdAt?: string;
     paidAt?: string;
 }
 
 export interface CreateSalaryPaymentCommand {
-    instructorMembershipId: number;
+    instructorMembershipId: string | number;
     month: string; // YYYY-MM
 }
 
@@ -1354,11 +1354,11 @@ export const salaryApi = {
         const response = await api.post<ApiResponse<SalaryConfig>>(`${SALARY_BASE_URL}/configs`, command);
         return response.data.data;
     },
-    getActiveConfig: async (membershipId: number) => {
+    getActiveConfig: async (membershipId: string | number) => {
         const response = await api.get<ApiResponse<SalaryConfig>>(`${SALARY_BASE_URL}/${membershipId}/config/active`);
-        return response.data.data;
+        return response.data.data || null;
     },
-    getConfigs: async (membershipId: number) => {
+    getConfigs: async (membershipId: string | number) => {
         // Backend DTO: ApiResponse<ConfigHistory { List<SalaryConfig> configs }>
         const response = await api.get<ApiResponse<{ configs: SalaryConfig[] }>>(`${SALARY_BASE_URL}/${membershipId}/configs`);
         return response.data.data.configs || [];
@@ -1367,14 +1367,14 @@ export const salaryApi = {
     // 2. Salary Calculation
     getAvailableMonths: async () => {
         const response = await api.get<ApiResponse<string[]>>(`${SALARY_BASE_URL}/payments/months`);
-        return response.data.data;
+        return response.data.data || [];
     },
-    getMonthlySummary: async (membershipId: number, month: string) => {
+    getMonthlySummary: async (membershipId: string | number, month: string) => {
         // month format: YYYY-MM
         const response = await api.get<ApiResponse<MonthlySalarySummary>>(`${SALARY_BASE_URL}/${membershipId}/monthly-summary`, {
             params: { month }
         });
-        return response.data.data;
+        return response.data.data || null;
     },
     confirmCalculation: async (calculationId: number) => {
         await api.post(`${SALARY_BASE_URL}/calculations/${calculationId}/confirm`);
@@ -1392,21 +1392,21 @@ export const salaryApi = {
 
     // 3. Salary Payment
     getPayments: async (params?: { month?: string, status?: SalaryPaymentStatus }) => {
-        const response = await api.get<ApiResponse<SalaryPayment[]>>('/finance/payments', { params });
-        return response.data.data;
+        const response = await api.get<ApiResponse<SalaryPayment[]>>(`${SALARY_BASE_URL}/payments`, { params });
+        return response.data.data || [];
     },
     createPayment: async (command: CreateSalaryPaymentCommand) => {
-        const response = await api.post<ApiResponse<SalaryPayment>>('/finance/payments', command);
+        const response = await api.post<ApiResponse<SalaryPayment>>(`${SALARY_BASE_URL}/payments`, command);
         return response.data.data;
     },
-    approvePayment: async (paymentId: number) => {
-        await api.post(`/finance/payments/${paymentId}/approve`);
+    approvePayment: async (paymentId: string | number) => {
+        await api.post(`${SALARY_BASE_URL}/payments/${paymentId}/approve`);
     },
 
     // 4. Budget
     getBudget: async (month: string) => {
-        const response = await api.get<ApiResponse<SalaryBudget>>(`/finance/budgets/${month}`);
-        return response.data.data;
+        const response = await api.get<ApiResponse<SalaryBudget>>(`${SALARY_BASE_URL}/budgets/${month}`);
+        return response.data.data || null;
     },
     updateBudget: async (command: CreateBudgetCommand) => {
         const response = await api.post<ApiResponse<SalaryBudget>>('/finance/budgets', command);
