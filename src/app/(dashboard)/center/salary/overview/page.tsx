@@ -54,7 +54,7 @@ export default function SalaryOverviewPage() {
     });
 
     const months = availableMonths.length > 0
-        ? availableMonths.map(m => ({ value: m, label: dayjs(m).format('YYYY년 MM월') }))
+        ? availableMonths.map((m: string) => ({ value: m, label: dayjs(m).format('YYYY년 MM월') }))
         : Array.from({ length: 12 }, (_, i) => {
             const d = dayjs().subtract(i, 'month');
             return { value: d.format('YYYY-MM'), label: d.format('YYYY년 MM월') };

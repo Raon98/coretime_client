@@ -84,8 +84,16 @@ export default function SalarySettingsListPage() {
                                             </Table.Td>
                                             <Table.Td>{instructor.phone || '-'}</Table.Td>
                                             <Table.Td>
-                                                <Badge color={instructor.status === 'ACTIVE' ? 'teal' : 'gray'} variant="light">
-                                                    {instructor.status || 'ACTIVE'}
+                                                <Badge
+                                                    color={instructor.status === 'ACTIVE' ? 'teal' : 'gray'}
+                                                    variant="light"
+                                                >
+                                                    {instructor.status === 'ACTIVE' ? '재직' :
+                                                        instructor.status === 'PENDING_APPROVAL' ? '승인 대기' :
+                                                            instructor.status === 'WITHDRAWN' ? '퇴사' :
+                                                                instructor.status === 'INACTIVE' ? '비활성' :
+                                                                    instructor.status === 'REJECTED' ? '거절됨' :
+                                                                        instructor.status || '재직'}
                                                 </Badge>
                                             </Table.Td>
                                             <Table.Td style={{ textAlign: 'center' }}>

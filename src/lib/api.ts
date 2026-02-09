@@ -1348,33 +1348,43 @@ export interface CreateBudgetCommand {
 // --- Salary Management API ---
 // (SALARY_BASE_URL is defined above)
 
+const unwrap = (response: any) => {
+    const body = response.data;
+    if (body && typeof body === 'object' && body.success === true && body.data !== undefined) {
+        return body.data;
+    }
+    return body;
+};
+
 export const salaryApi = {
     // 1. Salary Configuration
     createConfig: async (command: CreateSalaryConfigCommand) => {
         const response = await api.post<ApiResponse<SalaryConfig>>(`${SALARY_BASE_URL}/configs`, command);
-        return response.data.data;
+        return unwrap(response);
     },
     getActiveConfig: async (membershipId: string | number) => {
-        const response = await api.get<ApiResponse<SalaryConfig>>(`${SALARY_BASE_URL}/${membershipId}/config/active`);
-        return response.data.data || null;
+        const response = await api.get<any>(`${SALARY_BASE_URL}/${membershipId}/config/active`);
+        return unwrap(response) || null;
     },
     getConfigs: async (membershipId: string | number) => {
-        // Backend DTO: ApiResponse<ConfigHistory { List<SalaryConfig> configs }>
-        const response = await api.get<ApiResponse<{ configs: SalaryConfig[] }>>(`${SALARY_BASE_URL}/${membershipId}/configs`);
-        return response.data.data.configs || [];
+        const response = await api.get<any>(`${SALARY_BASE_URL}/${membershipId}/configs`);
+        const data = unwrap(response);
+        if (data && data.configs) return data.configs;
+        if (Array.isArray(data)) return data;
+        return [];
     },
 
     // 2. Salary Calculation
     getAvailableMonths: async () => {
-        const response = await api.get<ApiResponse<string[]>>(`${SALARY_BASE_URL}/payments/months`);
-        return response.data.data || [];
+        const response = await api.get<any>(`${SALARY_BASE_URL}/payments/months`);
+        return unwrap(response) || [];
     },
     getMonthlySummary: async (membershipId: string | number, month: string) => {
         // month format: YYYY-MM
-        const response = await api.get<ApiResponse<MonthlySalarySummary>>(`${SALARY_BASE_URL}/${membershipId}/monthly-summary`, {
+        const response = await api.get<any>(`${SALARY_BASE_URL}/${membershipId}/monthly-summary`, {
             params: { month }
         });
-        return response.data.data || null;
+        return unwrap(response) || null;
     },
     confirmCalculation: async (calculationId: number) => {
         await api.post(`${SALARY_BASE_URL}/calculations/${calculationId}/confirm`);
@@ -1383,8 +1393,8 @@ export const salaryApi = {
         await api.post(`${SALARY_BASE_URL}/calculations/${calculationId}/cancel`);
     },
     adjustCalculation: async (calculationId: number, command: AdjustCalculationCommand) => {
-        const response = await api.patch<ApiResponse<CalculationDetail>>(`${SALARY_BASE_URL}/calculations/${calculationId}/adjust`, command);
-        return response.data.data;
+        const response = await api.patch<any>(`${SALARY_BASE_URL}/calculations/${calculationId}/adjust`, command);
+        return unwrap(response);
     },
     updateCalculationStatus: async (calculationId: number, status: CalculationStatus) => {
         await api.patch(`${SALARY_BASE_URL}/calculations/${calculationId}/status`, { status });
@@ -1392,25 +1402,26 @@ export const salaryApi = {
 
     // 3. Salary Payment
     getPayments: async (params?: { month?: string, status?: SalaryPaymentStatus }) => {
-        const response = await api.get<ApiResponse<SalaryPayment[]>>(`${SALARY_BASE_URL}/payments`, { params });
-        return response.data.data || [];
+        const response = await api.get<any>(`${SALARY_BASE_URL}/payments`, { params });
+        return unwrap(response) || [];
     },
     createPayment: async (command: CreateSalaryPaymentCommand) => {
-        const response = await api.post<ApiResponse<SalaryPayment>>(`${SALARY_BASE_URL}/payments`, command);
-        return response.data.data;
+        const response = await api.post<any>(`${SALARY_BASE_URL}/payments`, command);
+        return unwrap(response);
     },
     approvePayment: async (paymentId: string | number) => {
-        await api.post(`${SALARY_BASE_URL}/payments/${paymentId}/approve`);
+        const response = await api.post<any>(`${SALARY_BASE_URL}/payments/${paymentId}/approve`);
+        return unwrap(response);
     },
 
     // 4. Budget
     getBudget: async (month: string) => {
-        const response = await api.get<ApiResponse<SalaryBudget>>(`${SALARY_BASE_URL}/budgets/${month}`);
-        return response.data.data || null;
+        const response = await api.get<any>(`${SALARY_BASE_URL}/budgets/${month}`);
+        return unwrap(response) || null;
     },
     updateBudget: async (command: CreateBudgetCommand) => {
-        const response = await api.post<ApiResponse<SalaryBudget>>('/finance/budgets', command);
-        return response.data.data;
+        const response = await api.post<any>('/finance/budgets', command);
+        return unwrap(response);
     },
 
     // 5. Reports (Using Summary for now)

@@ -75,17 +75,31 @@ export default function InstructorSalaryPage({ params }: { params: Promise<{ id:
     const [opened, { open, close }] = useDisclosure(false);
 
     // Fetch Active Config explicitly
-    const { data: activeConfig, isLoading: isActiveLoading } = useQuery({
+    const { data: activeConfigFromApi, isLoading: isActiveLoading } = useQuery({
         queryKey: ['salary', 'config', 'active', membershipId],
         queryFn: () => salaryApi.getActiveConfig(membershipId),
-        enabled: !!membershipId
+        enabled: !!membershipId,
+        staleTime: 10000, // Stabilize: prevent loop
+        retry: 1
     });
 
     // Fetch History
     const { data: configHistory = [], isLoading: isHistoryLoading } = useQuery({
         queryKey: ['salary', 'config', 'history', membershipId],
         queryFn: () => salaryApi.getConfigs(membershipId),
-        enabled: !!membershipId
+        enabled: !!membershipId,
+        staleTime: 10000, // Stabilize: prevent loop
+    });
+
+    // Deriving Active Config: Fallback to history if API fails or returns null
+    const activeConfig = activeConfigFromApi || configHistory.find((c: SalaryConfig) => c.isActive);
+
+    // Debug Logging
+    console.log('[SalaryPage] Data Sync:', {
+        membershipId,
+        activeFromApi: activeConfigFromApi,
+        activeFromHistory: configHistory.find((c: SalaryConfig) => c.isActive),
+        historyCount: configHistory.length
     });
 
     // Create Config Mutation
@@ -160,23 +174,23 @@ export default function InstructorSalaryPage({ params }: { params: Promise<{ id:
                     <Text c="dimmed" size="sm" ml={32}>강사의 정산 모델을 관리하고 이력을 확인합니다.</Text>
                 </Stack>
 
-                {/* <Button
-                    variant="light"
-                    color="indigo"
-                    leftSection={<IconPlus size={16} />}
-                    onClick={() => {
-                        if (activeConfig) {
+                {activeConfig && (
+                    <Button
+                        variant="light"
+                        color="indigo"
+                        leftSection={<IconPlus size={16} />}
+                        onClick={() => {
                             form.setValues({
                                 salaryType: activeConfig.salaryType,
                                 baseAmount: activeConfig.baseAmount,
                                 effectiveFrom: dayjs().format('YYYY-MM-DD')
                             });
-                        }
-                        open();
-                    }}
-                >
-                    새 정산 모델 등록
-                </Button> */}
+                            open();
+                        }}
+                    >
+                        새 정산 모델 등록
+                    </Button>
+                )}
             </Group>
 
             <Grid gutter="xl">
@@ -225,7 +239,13 @@ export default function InstructorSalaryPage({ params }: { params: Promise<{ id:
                                         </Grid.Col>
                                         <Grid.Col span={6}>
                                             <Text size="xs" c="dimmed" fw={600} mb={4}>적용 경과</Text>
-                                            <Text size="sm" fw={500}>{dayjs(activeConfig.effectiveFrom).fromNow()}</Text>
+                                            <Text size="sm" fw={500}>
+                                                {(() => {
+                                                    const diff = dayjs().startOf('day').diff(dayjs(activeConfig.effectiveFrom).startOf('day'), 'day');
+                                                    if (diff === 0) return '오늘부터 (1일차)';
+                                                    return `${diff + 1}일차 (${dayjs(activeConfig.effectiveFrom).fromNow()})`;
+                                                })()}
+                                            </Text>
                                         </Grid.Col>
                                     </Grid>
                                 </>
@@ -272,7 +292,7 @@ export default function InstructorSalaryPage({ params }: { params: Promise<{ id:
                                 </Center>
                             ) : (
                                 <Timeline active={0} bulletSize={12} lineWidth={2} ml={10}>
-                                    {configHistory.map((config, index) => (
+                                    {configHistory.map((config: SalaryConfig, index: number) => (
                                         <Timeline.Item
                                             key={config.id}
                                             bullet={config.isActive ? <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--mantine-color-green-6)' }} /> : null}
