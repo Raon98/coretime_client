@@ -5,7 +5,7 @@ import { useForm } from '@mantine/form';
 import { IconCheck, IconX, IconInfoCircle, IconRefresh, IconCopy, IconUserCheck, IconUserX, IconTicket, IconBuilding } from '@tabler/icons-react';
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { authApi, RegisterOrganizationCommand, OrganizationDto, InviteCodeResult } from '@/lib/api';
+import { authApi, instructorApi, RegisterOrganizationCommand, OrganizationDto, InviteCodeResult, Instructor } from '@/lib/api';
 // import { useAuth } from '@/context/AuthContext';
 
 interface PageProps {
@@ -19,7 +19,7 @@ export default function CenterManagePage({ params }: PageProps) {
 
     const [activeTab, setActiveTab] = useState<string | null>('info');
     const [center, setCenter] = useState<OrganizationDto | null>(null);
-    const [instructors, setInstructors] = useState<any[]>([]);
+    const [instructors, setInstructors] = useState<Instructor[]>([]);
     const [inviteCode, setInviteCode] = useState<InviteCodeResult | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -94,8 +94,8 @@ export default function CenterManagePage({ params }: PageProps) {
             // Spec separate Active vs Pending
             // We want to show both?
             const [active, pending] = await Promise.all([
-                authApi.getActiveInstructors(),
-                authApi.getPendingInstructors()
+                instructorApi.getActiveInstructors(),
+                instructorApi.getPendingInstructors()
             ]);
             // Merge or separate? The UI uses one table.
             // Let's merge them.
@@ -107,7 +107,7 @@ export default function CenterManagePage({ params }: PageProps) {
     const handleApprove = async (membershipId: string) => {
         if (!confirm('승인하시겠습니까?')) return;
         try {
-            await authApi.updateMembershipStatus(membershipId, true);
+            await instructorApi.updateMembershipStatus(membershipId, true);
             fetchInstructors(); // Refresh
         } catch (e) { alert('처리 실패'); }
     };
@@ -115,7 +115,7 @@ export default function CenterManagePage({ params }: PageProps) {
     const handleReject = async (membershipId: string) => {
         if (!confirm('거절하시겠습니까?')) return;
         try {
-            await authApi.updateMembershipStatus(membershipId, false);
+            await instructorApi.updateMembershipStatus(membershipId, false);
             fetchInstructors();
         } catch (e) { alert('처리 실패'); }
     };
@@ -211,8 +211,8 @@ export default function CenterManagePage({ params }: PageProps) {
                                                 <Table.Td>
                                                     {inst.status === 'PENDING_APPROVAL' && (
                                                         <Group gap="xs">
-                                                            <Button size="compact-xs" color="green" onClick={() => handleApprove(inst.id)}>승인</Button>
-                                                            <Button size="compact-xs" color="red" variant="subtle" onClick={() => handleReject(inst.id)}>거절</Button>
+                                                            <Button size="compact-xs" color="green" onClick={() => handleApprove(String(inst.membershipId))}>승인</Button>
+                                                            <Button size="compact-xs" color="red" variant="subtle" onClick={() => handleReject(String(inst.membershipId))}>거절</Button>
                                                         </Group>
                                                     )}
                                                 </Table.Td>

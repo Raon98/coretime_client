@@ -80,6 +80,7 @@ const getNavItems = (role: UserRole): NavItem[] => {
                 link: '/center/salary',
                 children: [
                     { label: '급여 현황', link: '/center/salary/overview' },
+                    { label: '급여 설정', link: '/center/salary/settings' },
                     { label: '급여 지급', link: '/center/salary/payments' },
                     { label: '예산 관리', link: '/center/salary/budget' },
                     { label: '정산서 관리', link: '/center/salary/reports' },

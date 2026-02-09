@@ -35,7 +35,7 @@ import {
     IconRefresh
 } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
-import { salaryApi } from '@/lib/api';
+import { salaryApi, CalculationDetail } from '@/lib/api';
 import dayjs from 'dayjs';
 
 export default function SalaryOverviewPage() {
@@ -47,10 +47,18 @@ export default function SalaryOverviewPage() {
         queryFn: () => salaryApi.getSalaryOverview(1, selectedMonth), // Hardcoded membershipId 1 for now as per API spec example
     });
 
-    const months = Array.from({ length: 12 }, (_, i) => {
-        const d = dayjs().subtract(i, 'month');
-        return { value: d.format('YYYY-MM'), label: d.format('YYYY년 MM월') };
+    // Fetch available months for payment from backend
+    const { data: availableMonths = [] } = useQuery({
+        queryKey: ['salary', 'available-months'],
+        queryFn: () => salaryApi.getAvailableMonths(),
     });
+
+    const months = availableMonths.length > 0
+        ? availableMonths.map(m => ({ value: m, label: dayjs(m).format('YYYY년 MM월') }))
+        : Array.from({ length: 12 }, (_, i) => {
+            const d = dayjs().subtract(i, 'month');
+            return { value: d.format('YYYY-MM'), label: d.format('YYYY년 MM월') };
+        });
 
     if (isLoading) {
         return (
@@ -163,7 +171,7 @@ export default function SalaryOverviewPage() {
                                 </Table.Td>
                             </Table.Tr>
                         ) : (
-                            overview.details.map((item) => (
+                            overview.details.map((item: CalculationDetail) => (
                                 <Table.Tr key={item.id}>
                                     <Table.Td>
                                         <Text fw={500} size="sm">{item.sessionDate || '-'}</Text>

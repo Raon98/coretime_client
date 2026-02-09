@@ -33,7 +33,7 @@ import {
     IconEdit,
     IconNotes
 } from '@tabler/icons-react';
-import { useActiveInstructors, usePendingInstructors, authApi, InstructorDto } from '@/lib/api';
+import { useActiveInstructors, usePendingInstructors, instructorApi, Instructor } from '@/lib/api';
 import { notifications } from '@mantine/notifications';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
@@ -62,7 +62,7 @@ export default function InstructorManagementPage() {
     const { data: pendingInstructors = [], isLoading: isLoadingPending } = usePendingInstructors();
 
     // Modal States
-    const [selectedInstructor, setSelectedInstructor] = useState<InstructorDto | null>(null);
+    const [selectedInstructor, setSelectedInstructor] = useState<Instructor | null>(null);
     const [editOpened, { open: openEdit, close: closeEdit }] = useDisclosure(false);
     const [suspendOpened, { open: openSuspend, close: closeSuspend }] = useDisclosure(false);
     const [withdrawOpened, { open: openWithdraw, close: closeWithdraw }] = useDisclosure(false);
@@ -96,8 +96,8 @@ export default function InstructorManagementPage() {
 
     // Mutations
     const approveMutation = useMutation({
-        mutationFn: ({ membershipId, isApproved }: { membershipId: string; isApproved: boolean }) =>
-            authApi.updateMembershipStatus(membershipId, isApproved),
+        mutationFn: ({ membershipId, isApproved }: { membershipId: string | number; isApproved: boolean }) =>
+            instructorApi.updateMembershipStatus(membershipId, isApproved),
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['instructors'] });
             notifications.show({
@@ -116,8 +116,8 @@ export default function InstructorManagementPage() {
     });
 
     const statusMutation = useMutation({
-        mutationFn: ({ membershipId, status }: { membershipId: string; status: string }) =>
-            authApi.updateInstructorStatus(membershipId, status),
+        mutationFn: ({ membershipId, status }: { membershipId: string | number; status: string }) =>
+            instructorApi.updateInstructorStatus(membershipId, status),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['instructors'] });
             notifications.show({
@@ -136,7 +136,7 @@ export default function InstructorManagementPage() {
     });
 
     const registerMutation = useMutation({
-        mutationFn: (data: any) => authApi.registerInstructor(data),
+        mutationFn: (data: any) => instructorApi.registerInstructor(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['instructors'] });
             notifications.show({
@@ -155,7 +155,7 @@ export default function InstructorManagementPage() {
     });
 
     // Handlers
-    const handleAction = (type: 'suspend' | 'withdraw' | 'activate', instructor: InstructorDto) => {
+    const handleAction = (type: 'suspend' | 'withdraw' | 'activate', instructor: Instructor) => {
         setSelectedInstructor(instructor);
         if (type === 'suspend') {
             openSuspend();
@@ -166,7 +166,7 @@ export default function InstructorManagementPage() {
         }
     };
 
-    const handleEdit = (instructor: InstructorDto) => {
+    const handleEdit = (instructor: Instructor) => {
         setSelectedInstructor(instructor);
         setEditForm({
             name: instructor.name || '',
@@ -178,7 +178,7 @@ export default function InstructorManagementPage() {
         openEdit();
     };
 
-    const handleRowClick = (instructor: InstructorDto) => {
+    const handleRowClick = (instructor: Instructor) => {
         setSelectedInstructor(instructor);
         openDrawer();
     };
@@ -193,7 +193,7 @@ export default function InstructorManagementPage() {
     const confirmWithdraw = () => {
         if (!selectedInstructor) return;
 
-        authApi.resignInstructor(selectedInstructor.membershipId)
+        instructorApi.resignInstructor(selectedInstructor.membershipId)
             .then(() => {
                 queryClient.invalidateQueries({ queryKey: ['instructors'] });
                 notifications.show({
@@ -223,7 +223,7 @@ export default function InstructorManagementPage() {
             birthDate: editForm.birthDate || undefined
         };
 
-        authApi.updateInstructor(selectedInstructor.membershipId, updateCommand)
+        instructorApi.updateInstructor(selectedInstructor.membershipId, updateCommand)
             .then(() => {
                 queryClient.invalidateQueries({ queryKey: ['instructors'] });
                 notifications.show({
@@ -443,9 +443,9 @@ function InstructorDrawer({
 }: {
     opened: boolean;
     onClose: () => void;
-    instructor: InstructorDto | null;
+    instructor: Instructor | null;
     onEdit: () => void;
-    onWithdraw: (instructor: InstructorDto) => void;
+    onWithdraw: (instructor: Instructor) => void;
     onMemoUpdated: (memo: string) => void;
 }) {
     const [memoValue, setMemoValue] = useState('');
@@ -463,7 +463,7 @@ function InstructorDrawer({
     const memoMutation = useMutation({
         mutationFn: async (memo: string) => {
             if (!instructor) return;
-            await authApi.updateInstructorMemo(instructor.membershipId, { memo });
+            await instructorApi.updateInstructorMemo(instructor.membershipId, { memo });
             return memo;
         },
         onSuccess: (memo) => {

@@ -18,7 +18,8 @@ import {
     Loader,
     NumberFormatter,
     Box,
-    Divider
+    Divider,
+    Select
 } from '@mantine/core';
 import { BarChart } from '@mantine/charts';
 import { useDisclosure } from '@mantine/hooks';
@@ -29,15 +30,28 @@ import dayjs from 'dayjs';
 import { notifications } from '@mantine/notifications';
 
 export default function SalaryBudgetPage() {
-    const [currentMonth] = useState(dayjs().format('YYYY-MM'));
+    const [selectedMonth, setSelectedMonth] = useState(dayjs().format('YYYY-MM'));
+
+    // Fetch available months for payment from backend
+    const { data: availableMonths = [] } = useQuery({
+        queryKey: ['salary', 'available-months'],
+        queryFn: () => salaryApi.getAvailableMonths(),
+    });
+
+    const months = availableMonths.length > 0
+        ? availableMonths.map(m => ({ value: m, label: dayjs(m).format('YYYY년 MM월') }))
+        : Array.from({ length: 12 }, (_, i) => {
+            const d = dayjs().subtract(i, 'month');
+            return { value: d.format('YYYY-MM'), label: d.format('YYYY년 MM월') };
+        });
     const [opened, { open, close }] = useDisclosure(false);
     const [newBudget, setNewBudget] = useState<number | ''>('');
     const queryClient = useQueryClient();
 
     // Fetch budget data
     const { data: budget, isLoading } = useQuery({
-        queryKey: ['salary', 'budget', currentMonth],
-        queryFn: () => salaryApi.getBudget(currentMonth),
+        queryKey: ['salary', 'budget', selectedMonth],
+        queryFn: () => salaryApi.getBudget(selectedMonth),
     });
 
     // Update budget mutation
@@ -53,7 +67,7 @@ export default function SalaryBudgetPage() {
     const handleUpdateBudget = () => {
         if (typeof newBudget === 'number') {
             updateBudgetMutation.mutate({
-                month: currentMonth,
+                month: selectedMonth,
                 plannedBudget: newBudget
             });
         }
@@ -82,18 +96,27 @@ export default function SalaryBudgetPage() {
             <Group justify="space-between" mb="xl" align="flex-end">
                 <div>
                     <Title order={2} fw={800} mb={4}>예산 관리</Title>
-                    <Text c="dimmed" size="sm">{dayjs().format('YYYY년 MM월')} 급여 예산 및 지출 현황입니다.</Text>
+                    <Text c="dimmed" size="sm">{dayjs(selectedMonth).format('YYYY년 MM월')} 급여 예산 및 지출 현황입니다.</Text>
                 </div>
-                <Button
-                    variant="light"
-                    leftSection={<IconSettings size={16} />}
-                    onClick={() => {
-                        setNewBudget(budget?.plannedBudget || '');
-                        open();
-                    }}
-                >
-                    예산 설정
-                </Button>
+                <Group>
+                    <Select
+                        value={selectedMonth}
+                        onChange={(v) => v && setSelectedMonth(v)}
+                        data={months}
+                        w={150}
+                        styles={{ input: { fontWeight: 500 } }}
+                    />
+                    <Button
+                        variant="light"
+                        leftSection={<IconSettings size={16} />}
+                        onClick={() => {
+                            setNewBudget(budget?.plannedBudget || '');
+                            open();
+                        }}
+                    >
+                        예산 설정
+                    </Button>
+                </Group>
             </Group>
 
             {/* Dashboard Grid */}
@@ -210,7 +233,7 @@ export default function SalaryBudgetPage() {
             <Modal opened={opened} onClose={close} title="월간 예산 설정" centered>
                 <Stack>
                     <Text size="sm">
-                        {dayjs(currentMonth).format('YYYY년 MM월')}의 목표 급여 예산을 설정합니다.
+                        {dayjs(selectedMonth).format('YYYY년 MM월')}의 목표 급여 예산을 설정합니다.
                     </Text>
                     <NumberInput
                         label="예산 금액"

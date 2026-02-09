@@ -36,14 +36,30 @@ import { salaryApi } from '@/lib/api';
 import dayjs from 'dayjs';
 import { notifications } from '@mantine/notifications';
 
+// Assuming SalaryReport type is defined elsewhere or will be defined.
+// For the purpose of this edit, we'll assume it's available.
+interface SalaryReport {
+    id: string;
+    month: string;
+    instructorName: string;
+    confirmedAmount: number;
+    generatedAt: string;
+    status: 'SENT' | 'PENDING';
+}
+
 export default function SalaryReportsPage() {
     const [selectedMonth, setSelectedMonth] = useState<string>(dayjs().format('YYYY-MM'));
+    const [selectedInstructor, setSelectedInstructor] = useState<string | null>(null); // Added this state
     const [previewId, setPreviewId] = useState<string | null>(null);
 
     // Fetch reports
-    const { data: reports, isLoading } = useQuery({
-        queryKey: ['salary', 'reports', selectedMonth],
-        queryFn: () => salaryApi.getReports({ month: selectedMonth }), // Assuming API supports this
+    const { data: reports, isLoading } = useQuery<SalaryReport[]>({
+        queryKey: ['salary', 'reports', selectedMonth, selectedInstructor],
+        queryFn: () => salaryApi.getReports({
+            month: selectedMonth || undefined,
+            instructorId: selectedInstructor || undefined
+        }),
+        initialData: [],
     });
 
     const handleSendEmail = (id: string) => {

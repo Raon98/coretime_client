@@ -1,266 +1,374 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, use } from 'react';
 import {
+    Container,
     Title,
     Text,
-    Container,
-    Paper,
-    Group,
     Button,
-    Grid,
+    Group,
+    Paper,
     Stack,
-    Badge,
-    Table,
+    Grid,
     ThemeIcon,
-    ActionIcon,
-    Modal,
-    Select,
+    Badge,
+    SegmentedControl,
     NumberInput,
-    Box,
-    Loader,
-    Center,
-    Timeline,
     Divider,
-    SegmentedControl
+    Timeline,
+    Box,
+    LoadingOverlay,
+    Modal,
+    Card,
+    Center,
+    Alert,
+    ActionIcon,
+    Tooltip
 } from '@mantine/core';
-import { DateInput } from '@mantine/dates';
+import { DatePickerInput } from '@mantine/dates';
+import { useForm } from '@mantine/form';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useDisclosure } from '@mantine/hooks';
 import {
     IconCurrencyDollar,
     IconHistory,
+    IconCalendar,
+    IconCheck,
+    IconClock,
+    IconUser,
     IconPlus,
-    IconCashBanknote,
-    IconCalendarTime,
-    IconArrowRight,
-    IconEdit
+    IconInfoCircle,
+    IconAlertCircle,
+    IconArrowLeft
 } from '@tabler/icons-react';
-import { useForm } from '@mantine/form';
-import { useDisclosure } from '@mantine/hooks';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { salaryApi, CreateSalaryConfigCommand, SalaryConfig, SalaryType } from '@/lib/api';
 import { notifications } from '@mantine/notifications';
-import { salaryApi, CreateSalaryConfigCommand, SalaryType } from '@/lib/api';
 import dayjs from 'dayjs';
-import { useParams } from 'next/navigation';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import 'dayjs/locale/ko';
+import { useRouter } from 'next/navigation';
 
-export default function InstructorSalaryPage() {
-    const params = useParams();
-    const membershipId = Number(params.id);
-    const [opened, { open, close }] = useDisclosure(false);
+// Configure dayjs
+dayjs.extend(relativeTime);
+dayjs.locale('ko');
+
+// Helper for labels in Korean
+const typeInfo: Record<string, { label: string; color: string; icon: typeof IconClock; desc: string }> = {
+    'HOURLY': {
+        label: '시간당',
+        color: 'indigo',
+        icon: IconClock,
+        desc: '실제 근무 시간(출퇴근 기록)을 기준으로 정산합니다.'
+    },
+    'PER_SESSION': {
+        label: '회당',
+        color: 'teal',
+        icon: IconUser,
+        desc: '완료된 수업 세션당 고정 금액을 지급합니다.'
+    }
+};
+
+export default function InstructorSalaryPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = use(params);
+    const membershipId = Number(id);
     const queryClient = useQueryClient();
+    const router = useRouter();
+    const [opened, { open, close }] = useDisclosure(false);
 
-    // Fetch active config
-    const { data: activeConfig, isLoading: isActiveLoading } = useQuery({
-        queryKey: ['salary', 'config', 'active', membershipId],
-        queryFn: () => salaryApi.getActiveConfig(membershipId),
-    });
-
-    // Fetch history
-    const { data: history, isLoading: isHistoryLoading } = useQuery({
+    // Fetch History (Active will be derived from here)
+    const { data: configHistory, isLoading: isHistoryLoading } = useQuery({
         queryKey: ['salary', 'config', 'history', membershipId],
-        queryFn: () => salaryApi.getConfigHistory(membershipId),
+        queryFn: () => salaryApi.getConfigs(membershipId),
+        initialData: [],
+        enabled: !isNaN(membershipId) && membershipId > 0
     });
 
-    const createConfigMutation = useMutation({
+    const activeConfig = configHistory?.find(c => c.isActive);
+
+    // Create Config Mutation
+    const createMutation = useMutation({
         mutationFn: (command: CreateSalaryConfigCommand) => salaryApi.createConfig(command),
         onSuccess: () => {
-            notifications.show({ title: '저장 완료', message: '급여 설정이 저장되었습니다.', color: 'teal' });
+            notifications.show({
+                title: '설정 저장 완료',
+                message: '새로운 급여 정산 모델이 성공적으로 적용되었습니다.',
+                color: 'teal',
+                icon: <IconCheck size={18} />,
+            });
             queryClient.invalidateQueries({ queryKey: ['salary', 'config'] });
             close();
             form.reset();
         },
-        onError: () => {
-            notifications.show({ title: '오류 발생', message: '설정 저장 중 오류가 발생했습니다.', color: 'red' });
+        onError: (error: any) => {
+            console.error(error);
+            notifications.show({
+                title: '저장 실패',
+                message: error?.response?.data?.error?.message || '설정을 저장하는 중 오류가 발생했습니다.',
+                color: 'red',
+                icon: <IconAlertCircle size={18} />,
+            });
         }
     });
 
-    const form = useForm({
+    const form = useForm<Omit<CreateSalaryConfigCommand, 'membershipId'>>({
         initialValues: {
-            salaryType: 'HOURLY' as SalaryType,
+            salaryType: 'HOURLY',
             baseAmount: 0,
-            effectiveFrom: new Date(),
+            effectiveFrom: dayjs().format('YYYY-MM-DD'),
         },
         validate: {
-            baseAmount: (value) => (value < 0 ? '0원 이상 입력해주세요' : null),
+            baseAmount: (value) => (value <= 0 ? '금액은 0보다 커야 합니다' : null),
+            effectiveFrom: (value) => (!value ? '적용 시작일은 필수입니다' : null),
         }
     });
 
     const handleSubmit = (values: typeof form.values) => {
-        createConfigMutation.mutate({
+        createMutation.mutate({
             membershipId,
-            salaryType: values.salaryType,
-            baseAmount: values.baseAmount,
+            ...values,
             effectiveFrom: dayjs(values.effectiveFrom).format('YYYY-MM-DD'),
         });
     };
 
-    if (isActiveLoading || isHistoryLoading) {
-        return <Center h={400}><Loader size="lg" /></Center>;
+    const activeInfo = activeConfig ? typeInfo[activeConfig.salaryType] : null;
+
+    if (isNaN(membershipId)) {
+        return (
+            <Container size="md" py="xl">
+                <Alert color="red" title="잘못된 요청">
+                    강사 식별 정보가 없거나 유효하지 않습니다.
+                </Alert>
+            </Container>
+        );
     }
 
-    const typeLabels: Record<SalaryType, string> = {
-        'HOURLY': '시급제',
-        'GRAVITY': '비율제 (Gravity)',
-        'PERCENTAGE': '비율제 (%)',
-        'PER_SESSION': '건별 지급'
-    };
-
     return (
-        <Container size="xl" py="xl">
-            <Stack gap="xl">
-                {/* Header */}
-                <Group justify="space-between" align="flex-end">
-                    <div>
-                        <Title order={2} fw={800} mb={4}>급여 설정 관리</Title>
-                        <Text c="dimmed" size="sm">강사의 급여 지급 기준을 설정하고 이력을 관리합니다.</Text>
-                    </div>
-                </Group>
+        <Container size="lg" py="xl">
+            {/* Minimal Header */}
+            <Group justify="space-between" mb={30}>
+                <Stack gap={4}>
+                    <Group gap="xs">
+                        <ActionIcon variant="subtle" color="gray" onClick={() => router.back()}>
+                            <IconArrowLeft size={18} />
+                        </ActionIcon>
+                        <Title order={2} fw={700} style={{ fontSize: '1.5rem' }}>급여 정산 설정</Title>
+                    </Group>
+                    <Text c="dimmed" size="sm" ml={32}>강사의 정산 모델을 관리하고 이력을 확인합니다.</Text>
+                </Stack>
 
-                <Grid>
-                    {/* Left: Active Config & Actions */}
-                    <Grid.Col span={{ base: 12, md: 5 }}>
-                        <Paper p="xl" radius="md" withBorder h="100%" bg="white">
-                            <Stack gap="lg">
-                                <Group justify="space-between">
-                                    <Group gap="xs">
-                                        <ThemeIcon size="lg" radius="md" variant="light" color="blue">
-                                            <IconCashBanknote size={20} />
-                                        </ThemeIcon>
-                                        <Text size="lg" fw={700}>현재 적용 중인 설정</Text>
+                <Button
+                    variant="light"
+                    color="indigo"
+                    leftSection={<IconPlus size={16} />}
+                    onClick={() => {
+                        if (activeConfig) {
+                            form.setValues({
+                                salaryType: activeConfig.salaryType,
+                                baseAmount: activeConfig.baseAmount,
+                                effectiveFrom: dayjs().format('YYYY-MM-DD')
+                            });
+                        }
+                        open();
+                    }}
+                >
+                    새 정산 모델 등록
+                </Button>
+            </Group>
+
+            <Grid gutter="xl">
+                {/* Active Insight Card */}
+                <Grid.Col span={{ base: 12, md: 5 }}>
+                    <Card withBorder padding="lg" radius="md" style={{ borderTop: `4px solid var(--mantine-color-${activeInfo?.color || 'gray'}-5)` }}>
+                        <Stack gap="lg">
+                            <Group justify="space-between">
+                                <Text fw={600} size="sm" c="dimmed">현재 적용 중인 모델</Text>
+                                <Badge variant="dot" color={activeConfig ? 'green' : 'gray'}>
+                                    {activeConfig ? '활성' : '미설정'}
+                                </Badge>
+                            </Group>
+
+                            {activeConfig ? (
+                                <>
+                                    <Group align="flex-start" justify="space-between" wrap="nowrap">
+                                        <div>
+                                            <Text fw={800} size="xl" style={{ fontSize: '2rem' }}>
+                                                ₩{activeConfig.baseAmount.toLocaleString()}
+                                            </Text>
+                                            <Group gap={4} mt={4}>
+                                                <ThemeIcon size="xs" variant="transparent" color={activeInfo?.color}>
+                                                    {activeInfo && <activeInfo.icon size={14} />}
+                                                </ThemeIcon>
+                                                <Text size="sm" fw={600} c={activeInfo?.color}>{activeInfo?.label}</Text>
+                                                <Text size="xs" c="dimmed">정산 방식</Text>
+                                            </Group>
+                                        </div>
+                                        <Tooltip label={activeInfo?.desc} multiline w={220} withArrow>
+                                            <ActionIcon variant="subtle" color="gray" radius="xl">
+                                                <IconInfoCircle size={18} />
+                                            </ActionIcon>
+                                        </Tooltip>
                                     </Group>
-                                    {activeConfig && <Badge color="teal" variant="light">Active</Badge>}
-                                </Group>
 
-                                {activeConfig ? (
-                                    <>
-                                        <Box py="md" style={{ borderTop: '1px solid var(--mantine-color-gray-2)', borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
-                                            <Stack gap="md">
-                                                <Group justify="space-between">
-                                                    <Text c="dimmed">지급 유형</Text>
-                                                    <Badge size="lg" variant="dot">{typeLabels[activeConfig.salaryType]}</Badge>
-                                                </Group>
-                                                <Group justify="space-between">
-                                                    <Text c="dimmed">기본 금액/비율</Text>
-                                                    <Text fw={800} size="xl" c="blue.7">
-                                                        {activeConfig.salaryType === 'PERCENTAGE'
-                                                            ? `${activeConfig.baseAmount}%`
-                                                            : `${activeConfig.baseAmount.toLocaleString()}원`}
-                                                    </Text>
-                                                </Group>
-                                                <Group justify="space-between">
-                                                    <Text c="dimmed">적용 시작일</Text>
-                                                    <Text fw={500}>{activeConfig.effectiveFrom}</Text>
-                                                </Group>
-                                            </Stack>
-                                        </Box>
-                                        <Button
-                                            fullWidth
-                                            size="md"
-                                            leftSection={<IconEdit size={18} />}
-                                            onClick={() => {
-                                                form.setValues({
-                                                    salaryType: activeConfig.salaryType,
-                                                    baseAmount: activeConfig.baseAmount,
-                                                    effectiveFrom: new Date()
-                                                });
-                                                open();
-                                            }}
-                                        >
-                                            새로운 설정 적용
-                                        </Button>
-                                    </>
-                                ) : (
-                                    <Stack align="center" py="xl" gap="md">
-                                        <Text c="dimmed">현재 적용된 급여 설정이 없습니다.</Text>
-                                        <Button leftSection={<IconPlus size={18} />} onClick={open}>
-                                            초기 급여 설정하기
-                                        </Button>
+                                    <Divider variant="dashed" />
+
+                                    <Grid gutter="sm">
+                                        <Grid.Col span={6}>
+                                            <Text size="xs" c="dimmed" fw={600} mb={4}>적용 시작일</Text>
+                                            <Group gap={6}>
+                                                <IconCalendar size={14} color="gray" />
+                                                <Text size="sm" fw={500}>{dayjs(activeConfig.effectiveFrom).format('YYYY-MM-DD')}</Text>
+                                            </Group>
+                                        </Grid.Col>
+                                        <Grid.Col span={6}>
+                                            <Text size="xs" c="dimmed" fw={600} mb={4}>적용 경과</Text>
+                                            <Text size="sm" fw={500}>{dayjs(activeConfig.effectiveFrom).fromNow()}</Text>
+                                        </Grid.Col>
+                                    </Grid>
+                                </>
+                            ) : (
+                                <Center py={40}>
+                                    <Stack align="center" gap="xs">
+                                        <ThemeIcon size={48} radius="xl" color="gray" variant="light">
+                                            <IconCurrencyDollar size={24} />
+                                        </ThemeIcon>
+                                        <Text size="sm" c="dimmed">적용된 정산 정보가 없습니다.</Text>
+                                        <Button variant="subtle" size="xs" mt="sm" onClick={open}>설정 추가하기</Button>
                                     </Stack>
-                                )}
-                            </Stack>
-                        </Paper>
-                    </Grid.Col>
+                                </Center>
+                            )}
+                        </Stack>
+                    </Card>
 
-                    {/* Right: History Timeline */}
-                    <Grid.Col span={{ base: 12, md: 7 }}>
-                        <Paper p="xl" radius="md" withBorder h="100%">
-                            <Title order={4} mb="lg" c="dimmed">설정 변경 이력</Title>
+                    <Paper withBorder p="md" radius="md" mt="md" bg="gray.0">
+                        <Group gap="sm" wrap="nowrap" align="flex-start">
+                            <ThemeIcon variant="light" color="indigo" size="sm">
+                                <IconInfoCircle size={14} />
+                            </ThemeIcon>
+                            <Text size="xs" c="dimmed" lh={1.6}>
+                                급여 정산 모델은 수업료 계산의 기준이 되며, 새로운 설정이 등록되면 기존 설정은 자동으로 종료일이 지정됩니다.
+                            </Text>
+                        </Group>
+                    </Paper>
+                </Grid.Col>
 
-                            {!history?.history.length ? (
-                                <Center h={200}>
-                                    <Text c="dimmed">변경 이력이 없습니다.</Text>
+                {/* History Timeline */}
+                <Grid.Col span={{ base: 12, md: 7 }}>
+                    <Stack gap="md">
+                        <Group justify="space-between">
+                            <Text fw={700} size="md">기본 정산 이력</Text>
+                            <Badge variant="light" color="gray">{configHistory?.length || 0}개 기록</Badge>
+                        </Group>
+
+                        <Paper withBorder p="xl" radius="md" styles={{ root: { position: 'relative' } }}>
+                            <LoadingOverlay visible={isHistoryLoading} overlayProps={{ blur: 1 }} />
+
+                            {(!configHistory || configHistory.length === 0) ? (
+                                <Center h={150}>
+                                    <Text size="sm" c="dimmed">변경 이력이 존재하지 않습니다.</Text>
                                 </Center>
                             ) : (
-                                <Timeline active={0} bulletSize={24} lineWidth={2}>
-                                    {history.history.map((item, index) => (
+                                <Timeline active={0} bulletSize={12} lineWidth={2} ml={10}>
+                                    {configHistory.map((config, index) => (
                                         <Timeline.Item
-                                            key={item.id}
-                                            bullet={index === 0 ? <IconCurrencyDollar size={12} /> : <IconHistory size={12} />}
-                                            title={
-                                                <Text fw={600} size="sm">
-                                                    {typeLabels[item.salaryType]} - {item.baseAmount.toLocaleString()}{item.salaryType === 'PERCENTAGE' ? '%' : '원'}
-                                                </Text>
-                                            }
+                                            key={config.id}
+                                            bullet={config.isActive ? <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: 'var(--mantine-color-green-6)' }} /> : null}
                                         >
-                                            <Text c="dimmed" size="xs">
-                                                적용 기간: {item.effectiveFrom} ~ {item.effectiveTo || '현재'}
-                                            </Text>
-                                            <Text size="xs" mt={4}>
-                                                변경일: {item.createdAt ? dayjs(item.createdAt).format('YYYY-MM-DD HH:mm') : '-'}
-                                            </Text>
+                                            <Group justify="space-between" align="flex-start">
+                                                <Stack gap={2}>
+                                                    <Group gap="xs">
+                                                        <Text fw={600} size="sm">
+                                                            {typeInfo[config.salaryType]?.label}정산
+                                                        </Text>
+                                                        <Text fw={700} size="sm" c="indigo">
+                                                            ₩{config.baseAmount.toLocaleString()}
+                                                        </Text>
+                                                        {config.isActive && <Badge size="xs" color="green" variant="light">현재 적용</Badge>}
+                                                    </Group>
+                                                    <Text size="xs" c="dimmed">
+                                                        {dayjs(config.effectiveFrom).format('YYYY.MM.DD')}
+                                                        {config.effectiveTo ? ` ~ ${dayjs(config.effectiveTo).format('YYYY.MM.DD')}` : ' ~ 현재'}
+                                                    </Text>
+                                                </Stack>
+                                                <Text size="xs" c="dimmed">
+                                                    {dayjs(config.createdAt).format('MM.DD HH:mm')}
+                                                </Text>
+                                            </Group>
                                         </Timeline.Item>
                                     ))}
                                 </Timeline>
                             )}
                         </Paper>
-                    </Grid.Col>
-                </Grid>
+                    </Stack>
+                </Grid.Col>
+            </Grid>
 
-                {/* Create/Edit Modal */}
-                <Modal
-                    opened={opened}
-                    onClose={close}
-                    title="급여 설정"
-                    centered
-                >
-                    <form onSubmit={form.onSubmit(handleSubmit)}>
-                        <Stack>
-                            <Text size="sm" fw={500} mt="xs">급여 지급 유형</Text>
+            {/* Config Modal */}
+            <Modal
+                opened={opened}
+                onClose={close}
+                title={<Text fw={700}>정산 모델 변경</Text>}
+                centered
+                size="sm"
+                padding="lg"
+            >
+                <form onSubmit={form.onSubmit(handleSubmit)}>
+                    <Stack gap="md">
+                        <Box>
+                            <Text fw={600} size="xs" mb={8} c="dimmed">정산 방식</Text>
                             <SegmentedControl
                                 fullWidth
+                                size="sm"
+                                color="indigo"
                                 data={[
-                                    { value: 'HOURLY', label: '시급제' },
-                                    { value: 'PER_SESSION', label: '건별' },
-                                    { value: 'PERCENTAGE', label: '비율제 (%)' }
+                                    { value: 'HOURLY', label: '시간당 정산' },
+                                    { value: 'PER_SESSION', label: '회당 정산' }
                                 ]}
-                                {...form.getInputProps('salaryType')}
+                                value={form.values.salaryType}
+                                onChange={(val) => form.setFieldValue('salaryType', val as SalaryType)}
                             />
+                        </Box>
 
+                        <Box>
+                            <Text fw={600} size="xs" mb={8} c="dimmed">지급 금액 (₩)</Text>
                             <NumberInput
-                                label={form.values.salaryType === 'PERCENTAGE' ? '적용 비율 (%)' : '기본 금액 (원)'}
-                                description={form.values.salaryType === 'PERCENTAGE' ? '매출의 몇 %를 지급할지 입력하세요.' : '시간/건당 지급액을 입력하세요.'}
-                                placeholder="0"
+                                size="sm"
+                                placeholder="금액을 입력하세요"
                                 thousandSeparator
-                                suffix={form.values.salaryType === 'PERCENTAGE' ? '%' : ' 원'}
+                                min={0}
+                                hideControls
                                 {...form.getInputProps('baseAmount')}
                             />
+                            <Text size="xs" c="dimmed" mt={4}>
+                                {form.values.salaryType === 'HOURLY' ? '시간당 단가를 입력합니다.' : '수업 1회 완료 시 지급되는 단가입니다.'}
+                            </Text>
+                        </Box>
 
-                            <DateInput
-                                label="적용 시작일"
-                                description="이 설정은 언제부터 적용되나요?"
-                                placeholder="YYYY-MM-DD"
-                                valueFormat="YYYY-MM-DD"
-                                minDate={new Date()}
-                                {...form.getInputProps('effectiveFrom')}
+                        <Box>
+                            <Text fw={600} size="xs" mb={8} c="dimmed">적용 시작일</Text>
+                            <DatePickerInput
+                                size="sm"
+                                placeholder="날짜 선택"
+                                locale="ko"
+                                valueFormat="YYYY.MM.DD"
+                                value={dayjs(form.values.effectiveFrom).toDate()}
+                                onChange={(date) => form.setFieldValue('effectiveFrom', dayjs(date).format('YYYY-MM-DD'))}
                             />
+                        </Box>
 
-                            <Group justify="flex-end" mt="md">
-                                <Button variant="light" onClick={close}>취소</Button>
-                                <Button type="submit" loading={createConfigMutation.isPending}>저장하기</Button>
-                            </Group>
-                        </Stack>
-                    </form>
-                </Modal>
-            </Stack>
+                        <Group justify="flex-end" mt="lg">
+                            <Button variant="subtle" color="gray" size="sm" onClick={close}>취소</Button>
+                            <Button
+                                color="indigo"
+                                size="sm"
+                                type="submit"
+                                loading={createMutation.isPending}
+                            >
+                                저장하기
+                            </Button>
+                        </Group>
+                    </Stack>
+                </form>
+            </Modal>
         </Container>
     );
 }

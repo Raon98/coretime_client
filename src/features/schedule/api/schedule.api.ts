@@ -1,4 +1,4 @@
-import { scheduleApi as apiSchedule, reservationApi as apiReservation, roomApi as apiRoom, ScheduleResult, ReservationResult, authApi } from '@/lib/api';
+import { scheduleApi as apiSchedule, reservationApi as apiReservation, roomApi as apiRoom, ScheduleResult, ReservationResult, authApi, instructorApi } from '@/lib/api';
 
 import { ClassSession, Reservation, Room } from '../model/types';
 import dayjs from 'dayjs';
@@ -67,12 +67,12 @@ export const scheduleApi = {
     },
 
     getInstructors: async () => {
-        const instructors = await authApi.getActiveInstructors();
+        const instructors = await instructorApi.getActiveInstructors();
         return instructors.map((inst, idx) => ({
-            instructorId: inst.membershipId,
+            instructorId: String(inst.membershipId),
             name: inst.name,
             avatarUrl: inst.profileImageUrl,
-            color: getColor(inst.membershipId, idx)
+            color: getColor(String(inst.membershipId), idx)
         }));
     }
 

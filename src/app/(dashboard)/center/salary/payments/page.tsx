@@ -38,7 +38,7 @@ import {
     IconUser
 } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { salaryApi, SalaryPaymentStatus, CreateSalaryPaymentCommand } from '@/lib/api'; // Corrected import
+import { salaryApi, instructorApi, SalaryPaymentStatus, CreateSalaryPaymentCommand } from '@/lib/api'; // Corrected import
 import dayjs from 'dayjs';
 
 export default function SalaryPaymentsPage() {
@@ -46,6 +46,19 @@ export default function SalaryPaymentsPage() {
     const [selectedMonth, setSelectedMonth] = useState<string | null>(dayjs().format('YYYY-MM'));
     const [opened, { open, close }] = useDisclosure(false);
     const queryClient = useQueryClient();
+
+    // Fetch available months for payment from backend
+    const { data: availableMonths = [] } = useQuery({
+        queryKey: ['salary', 'available-months'],
+        queryFn: () => salaryApi.getAvailableMonths(),
+    });
+
+    const months = availableMonths.length > 0
+        ? availableMonths.map(m => ({ value: m, label: dayjs(m).format('YYYY년 MM월') }))
+        : Array.from({ length: 12 }, (_, i) => {
+            const d = dayjs().subtract(i, 'month');
+            return { value: d.format('YYYY-MM'), label: d.format('YYYY년 MM월') };
+        });
 
     // Fetch payments
     const { data: payments, isLoading } = useQuery({
@@ -56,8 +69,13 @@ export default function SalaryPaymentsPage() {
         }),
     });
 
+    const { data: instructors } = useQuery({
+        queryKey: ['instructors', 'list'],
+        queryFn: () => instructorApi.getInstructors({}),
+    });
+
     const createMutation = useMutation({
-        mutationFn: (command: CreateSalaryPaymentCommand) => salaryApi.createPayment(command), // Corrected type usage
+        mutationFn: (command: CreateSalaryPaymentCommand) => salaryApi.createPayment(command),
         onSuccess: () => {
             notifications.show({
                 title: '지급 건 생성 완료',
@@ -79,19 +97,21 @@ export default function SalaryPaymentsPage() {
 
     const form = useForm({
         initialValues: {
-            instructorId: 1, // Mock instructor ID
+            instructorId: '' as string | null, // Changed to string for Select compatibility
             month: dayjs().toDate(),
             adjustmentAmount: 0,
             memo: '',
         },
         validate: {
+            instructorId: (value) => !value ? '강사를 선택해주세요' : null,
             month: (value) => !value ? '지급 월을 선택해주세요' : null,
         }
     });
 
     const handleSubmit = (values: typeof form.values) => {
+        if (!values.instructorId) return;
         createMutation.mutate({
-            instructorMembershipId: values.instructorId,
+            instructorMembershipId: Number(values.instructorId),
             month: dayjs(values.month).format('YYYY-MM'),
         });
     };
@@ -135,14 +155,11 @@ export default function SalaryPaymentsPage() {
                         onChange={setSelectedStatus}
                         clearable
                         w={150}
-                        leftSection={<IconConcurrencyDollar size={16} />} // Use available icon or generic
+                        leftSection={<IconCurrencyDollar size={16} />}
                     />
                     <Select
                         placeholder="지급월"
-                        data={Array.from({ length: 12 }, (_, i) => {
-                            const d = dayjs().subtract(i, 'month');
-                            return { value: d.format('YYYY-MM'), label: d.format('YYYY년 MM월') };
-                        })}
+                        data={months}
                         value={selectedMonth}
                         onChange={setSelectedMonth}
                         w={150}
@@ -166,15 +183,7 @@ export default function SalaryPaymentsPage() {
                         </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
-                        {(!payments || payments.length === 0) ? (
-                            <Table.Tr>
-                                <Table.Td colSpan={7}>
-                                    <Center py="xl">
-                                        <Text c="dimmed">지급 내역이 없습니다.</Text>
-                                    </Center>
-                                </Table.Td>
-                            </Table.Tr>
-                        ) : (
+                        {(Array.isArray(payments) && payments.length > 0) ? (
                             payments.map((payment) => (
                                 <Table.Tr key={payment.id}>
                                     <Table.Td>
@@ -230,6 +239,14 @@ export default function SalaryPaymentsPage() {
                                     </Table.Td>
                                 </Table.Tr>
                             ))
+                        ) : (
+                            <Table.Tr>
+                                <Table.Td colSpan={7}>
+                                    <Center py="xl">
+                                        <Text c="dimmed">지급 내역이 없습니다.</Text>
+                                    </Center>
+                                </Table.Td>
+                            </Table.Tr>
                         )}
                     </Table.Tbody>
                 </Table>
@@ -242,9 +259,11 @@ export default function SalaryPaymentsPage() {
                         <Select
                             label="강사 선택"
                             placeholder="강사를 선택해주세요"
-                            data={['강사 A', '강사 B'].map((name, i) => ({ value: `${i + 1}`, label: name }))} // Mock data
-                            value={String(form.values.instructorId)}
-                            onChange={(val) => form.setFieldValue('instructorId', Number(val))}
+                            data={instructors?.map(i => ({ value: String(i.membershipId), label: i.name })) || []}
+                            value={form.values.instructorId}
+                            onChange={(val) => form.setFieldValue('instructorId', val)}
+                            searchable
+                            nothingFoundMessage="강사가 없습니다."
                             required
                         />
                         <DatePickerInput

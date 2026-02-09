@@ -528,21 +528,24 @@ export interface InviteCodeResult {
     remainingSeconds: number;
 }
 
-export interface InstructorDto {
-    membershipId: string;
-    accountId: string;
+export interface Instructor {
+    membershipId: string | number;
+    accountId?: string;
     name: string;
-    email: string;
+    email?: string;
     phone: string;
-    identity: 'INSTRUCTOR';
+    identity?: 'INSTRUCTOR';
     status: 'ACTIVE' | 'PENDING_APPROVAL' | 'INACTIVE' | 'WITHDRAWN' | 'REJECTED';
     profileImageUrl?: string | null;
-    gender: 'MALE' | 'FEMALE';
+    gender?: 'MALE' | 'FEMALE';
     birthDate?: string;
     memo?: string;
     approvedAt?: string;
     createdAt?: string;
+    id?: number; // Kept for backward compat in some contexts if needed
 }
+
+export type InstructorDto = Instructor;
 
 export interface RegisterInstructorCommand {
     name: string;
@@ -638,44 +641,11 @@ export const authApi = {
         return response.data.data;
     },
 
-    // 5. Instructor Management (HR)
-    registerInstructor: async (command: RegisterInstructorCommand) => {
-        const response = await api.post<ApiResponse<InstructorDto>>('/management/instructors/register', command);
-        return response.data.data;
-    },
-    getActiveInstructors: async () => {
-        const response = await api.get<ApiResponse<InstructorDto[]>>('/management/instructors');
-        return response.data.data;
-    },
-    getPendingInstructors: async () => {
-        const response = await api.get<ApiResponse<InstructorDto[]>>('/management/pending-instructors');
-        return response.data.data;
-    },
-    // 5.3 Approve/Reject
-    updateMembershipStatus: async (membershipId: string, isApproved: boolean) => {
-        const response = await api.patch<ApiResponse<any>>(`/management/memberships/${membershipId}/status`, null, {
+    // 5.8 Approve/Reject Organization
+    approveOrganization: async (organizationId: string, isApproved: boolean) => {
+        const response = await api.patch<ApiResponse<any>>(`/admin/organizations/${organizationId}/status`, null, {
             params: { isApproved }
         });
-        return response.data.data;
-    },
-    // 5.4 Update Status
-    updateInstructorStatus: async (membershipId: string, status: string) => {
-        const response = await api.patch<ApiResponse<any>>(`/management/instructors/${membershipId}/management`, { status });
-        return response.data.data;
-    },
-    // 5.5 Update Instructor Info (excluding memo)
-    updateInstructor: async (membershipId: string, command: UpdateInstructorCommand) => {
-        const response = await api.patch<ApiResponse<InstructorDto>>(`/management/instructors/${membershipId}`, command);
-        return response.data.data;
-    },
-    // 5.6 Update Instructor Memo
-    updateInstructorMemo: async (membershipId: string, command: UpdateInstructorMemoCommand) => {
-        const response = await api.patch<ApiResponse<void>>(`/management/instructors/${membershipId}/memo`, command);
-        return response.data.data;
-    },
-    // 5.7 Resign Instructor (퇴사 처리)
-    resignInstructor: async (membershipId: string) => {
-        const response = await api.post<ApiResponse<void>>(`/management/instructors/${membershipId}/resign`);
         return response.data.data;
     },
 
@@ -684,12 +654,54 @@ export const authApi = {
         const response = await api.get<ApiResponse<OrganizationDto[]>>('/admin/organizations/pending');
         return response.data.data;
     },
-    approveOrganization: async (organizationId: string, isApproved: boolean) => {
-        const response = await api.patch<ApiResponse<any>>(`/admin/organizations/${organizationId}/status`, null, {
+};
+
+export const instructorApi = {
+    registerInstructor: async (command: RegisterInstructorCommand) => {
+        const response = await api.post<ApiResponse<Instructor>>('/management/instructors/register', command);
+        return response.data.data;
+    },
+    // Standard list for all instructors
+    getInstructors: async (params?: { search?: string, status?: string }) => {
+        const response = await api.get<ApiResponse<Instructor[]>>('/management/instructors', { params });
+        return response.data.data;
+    },
+    // Standard get single
+    getInstructor: async (membershipId: string | number) => {
+        const response = await api.get<ApiResponse<Instructor>>(`/management/instructors/${membershipId}`);
+        return response.data.data;
+    },
+    getActiveInstructors: async () => {
+        const response = await api.get<ApiResponse<Instructor[]>>('/management/instructors');
+        return response.data.data;
+    },
+    getPendingInstructors: async () => {
+        const response = await api.get<ApiResponse<Instructor[]>>('/management/pending-instructors');
+        return response.data.data;
+    },
+    // Approve/Reject Join Request
+    updateMembershipStatus: async (membershipId: string | number, isApproved: boolean) => {
+        const response = await api.patch<ApiResponse<any>>(`/management/memberships/${membershipId}/status`, null, {
             params: { isApproved }
         });
         return response.data.data;
-    }
+    },
+    updateInstructorStatus: async (membershipId: string | number, status: string) => {
+        const response = await api.patch<ApiResponse<any>>(`/management/instructors/${membershipId}/management`, { status });
+        return response.data.data;
+    },
+    updateInstructor: async (membershipId: string | number, command: UpdateInstructorCommand) => {
+        const response = await api.patch<ApiResponse<Instructor>>(`/management/instructors/${membershipId}`, command);
+        return response.data.data;
+    },
+    updateInstructorMemo: async (membershipId: string | number, command: UpdateInstructorMemoCommand) => {
+        const response = await api.patch<ApiResponse<void>>(`/management/instructors/${membershipId}/memo`, command);
+        return response.data.data;
+    },
+    resignInstructor: async (membershipId: string | number) => {
+        const response = await api.post<ApiResponse<void>>(`/management/instructors/${membershipId}/resign`);
+        return response.data.data;
+    },
 };
 
 // Profile Management API
@@ -1034,10 +1046,10 @@ export function useCenterAlerts(options?: Omit<UseQueryOptions<any[], Error>, 'q
     });
 }
 
-export function usePendingInstructors(options?: Omit<UseQueryOptions<InstructorDto[], Error>, 'queryKey' | 'queryFn'>) {
+export function usePendingInstructors(options?: Omit<UseQueryOptions<Instructor[], Error>, 'queryKey' | 'queryFn'>) {
     return useQuery({
         queryKey: queryKeys.instructors.pending,
-        queryFn: () => authApi.getPendingInstructors(),
+        queryFn: () => instructorApi.getPendingInstructors(),
         staleTime: 2 * 60 * 1000,
         ...options
     });
@@ -1059,10 +1071,10 @@ export function useMemberTickets(options?: Omit<UseQueryOptions<MemberTicketResu
     });
 }
 
-export function useActiveInstructors(options?: Omit<UseQueryOptions<InstructorDto[], Error>, 'queryKey' | 'queryFn'>) {
+export function useActiveInstructors(options?: Omit<UseQueryOptions<Instructor[], Error>, 'queryKey' | 'queryFn'>) {
     return useQuery({
         queryKey: ['instructors', 'active'] as const,
-        queryFn: () => authApi.getActiveInstructors(),
+        queryFn: () => instructorApi.getActiveInstructors(),
         staleTime: 2 * 60 * 1000,
         ...options
     });
@@ -1240,47 +1252,45 @@ export function useTicketsList(options?: Omit<UseQueryOptions<Ticket[], Error>, 
 
 
 // --- Salary Management API Types (New Spec) ---
-
-export type SalaryType = 'HOURLY' | 'GRAVITY' | 'PERCENTAGE' | 'PER_SESSION';
+export type SalaryType = 'HOURLY' | 'PER_SESSION';
 export type CalculationStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED';
 export type SalaryPaymentStatus = 'PENDING' | 'APPROVED' | 'PAID' | 'FAILED';
 export type BudgetStatus = 'NORMAL' | 'WARNING' | 'EXCEEDED';
 
-// 1. Config
+const SALARY_BASE_URL = '/finance/instructors';
+
 export interface SalaryConfig {
     id: number;
     membershipId: number;
     salaryType: SalaryType;
     baseAmount: number;
-    effectiveFrom: string; // YYYY-MM-DD
-    effectiveTo: string;   // YYYY-MM-DD
+    effectiveFrom: string;
+    effectiveTo?: string;
     isActive: boolean;
-    createdAt?: string;
+    createdAt: string;
 }
 
 export interface SalaryConfigHistory {
-    current: SalaryConfig | null;
-    history: SalaryConfig[];
+    configs: SalaryConfig[];
 }
 
 export interface CreateSalaryConfigCommand {
     membershipId: number;
     salaryType: SalaryType;
     baseAmount: number;
-    effectiveFrom: string; // YYYY-MM-DD
+    effectiveFrom: string;
 }
 
-// 2. Calculation
 export interface CalculationDetail {
     id: number;
     classSessionId: number;
-    className?: string; // Optional for UI display
-    sessionDate?: string; // Optional for UI display
     baseAmount: number;
     multiplier: number;
     calculatedAmount: number;
     status: CalculationStatus;
     createdAt: string;
+    className?: string; // Added for frontend display
+    sessionDate?: string; // Added for frontend display
 }
 
 export interface MonthlySalarySummary {
@@ -1334,29 +1344,37 @@ export interface CreateBudgetCommand {
 }
 
 // --- Salary Management API ---
-const SALARY_BASE_URL = 'finance/instructors';
+
+// --- Salary Management API ---
+// (SALARY_BASE_URL is defined above)
 
 export const salaryApi = {
     // 1. Salary Configuration
     createConfig: async (command: CreateSalaryConfigCommand) => {
-        const response = await api.post<SalaryConfig>(`${SALARY_BASE_URL}/configs`, command);
-        return response.data;
+        const response = await api.post<ApiResponse<SalaryConfig>>(`${SALARY_BASE_URL}/configs`, command);
+        return response.data.data;
     },
     getActiveConfig: async (membershipId: number) => {
-        const response = await api.get<SalaryConfig>(`${SALARY_BASE_URL}/${membershipId}/config/active`);
-        return response.data;
+        const response = await api.get<ApiResponse<SalaryConfig>>(`${SALARY_BASE_URL}/${membershipId}/config/active`);
+        return response.data.data;
     },
-    getConfigHistory: async (membershipId: number) => {
-        const response = await api.get<SalaryConfigHistory>(`${SALARY_BASE_URL}/${membershipId}/configs`);
-        return response.data;
+    getConfigs: async (membershipId: number) => {
+        // Backend DTO: ApiResponse<ConfigHistory { List<SalaryConfig> configs }>
+        const response = await api.get<ApiResponse<{ configs: SalaryConfig[] }>>(`${SALARY_BASE_URL}/${membershipId}/configs`);
+        return response.data.data.configs || [];
     },
 
     // 2. Salary Calculation
+    getAvailableMonths: async () => {
+        const response = await api.get<ApiResponse<string[]>>(`${SALARY_BASE_URL}/payments/months`);
+        return response.data.data;
+    },
     getMonthlySummary: async (membershipId: number, month: string) => {
-        const response = await api.get<MonthlySalarySummary>(`${SALARY_BASE_URL}/${membershipId}/monthly-summary`, {
+        // month format: YYYY-MM
+        const response = await api.get<ApiResponse<MonthlySalarySummary>>(`${SALARY_BASE_URL}/${membershipId}/monthly-summary`, {
             params: { month }
         });
-        return response.data;
+        return response.data.data;
     },
     confirmCalculation: async (calculationId: number) => {
         await api.post(`${SALARY_BASE_URL}/calculations/${calculationId}/confirm`);
@@ -1365,61 +1383,44 @@ export const salaryApi = {
         await api.post(`${SALARY_BASE_URL}/calculations/${calculationId}/cancel`);
     },
     adjustCalculation: async (calculationId: number, command: AdjustCalculationCommand) => {
-        const response = await api.patch<CalculationDetail>(`${SALARY_BASE_URL}/calculations/${calculationId}/adjust`, command);
-        return response.data;
+        const response = await api.patch<ApiResponse<CalculationDetail>>(`${SALARY_BASE_URL}/calculations/${calculationId}/adjust`, command);
+        return response.data.data;
     },
     updateCalculationStatus: async (calculationId: number, status: CalculationStatus) => {
         await api.patch(`${SALARY_BASE_URL}/calculations/${calculationId}/status`, { status });
     },
 
     // 3. Salary Payment
-    createPayment: async (command: CreateSalaryPaymentCommand) => {
-        const response = await api.post<SalaryPayment>(`${SALARY_BASE_URL}/payments`, null, {
-            params: command // Pass as params based on guide "Query Params"
-        });
-        return response.data;
-    },
-    approvePayment: async (paymentId: number, adminMembershipId?: number) => {
-        await api.post(`${SALARY_BASE_URL}/payments/${paymentId}/approve`, null, {
-            params: { adminMembershipId }
-        });
-    },
-    // Helper to get payments list (not explicitly in guide but needed for list page, potentially GET /payments)
-    // Assuming a similar structure or we might need to query by instructor first. 
-    // For now, let's keep a placeholder or user might have omitted list endpoint.
-    // We will assume GET /payments exists with filters.
     getPayments: async (params?: { month?: string, status?: SalaryPaymentStatus }) => {
-        const response = await api.get<SalaryPayment[]>(`${SALARY_BASE_URL}/payments`, { params });
-        return response.data;
+        const response = await api.get<ApiResponse<SalaryPayment[]>>('/finance/payments', { params });
+        return response.data.data;
+    },
+    createPayment: async (command: CreateSalaryPaymentCommand) => {
+        const response = await api.post<ApiResponse<SalaryPayment>>('/finance/payments', command);
+        return response.data.data;
+    },
+    approvePayment: async (paymentId: number) => {
+        await api.post(`/finance/payments/${paymentId}/approve`);
     },
 
-    // 4. Salary Budget
-    updateBudget: async (command: CreateBudgetCommand) => {
-        const response = await api.post<SalaryBudget>(`${SALARY_BASE_URL}/budgets`, null, {
-            params: command
-        });
-        return response.data;
-    },
+    // 4. Budget
     getBudget: async (month: string) => {
-        const response = await api.get<SalaryBudget>(`${SALARY_BASE_URL}/budgets/${month}`);
-        return response.data;
+        const response = await api.get<ApiResponse<SalaryBudget>>(`/finance/budgets/${month}`);
+        return response.data.data;
+    },
+    updateBudget: async (command: CreateBudgetCommand) => {
+        const response = await api.post<ApiResponse<SalaryBudget>>('/finance/budgets', command);
+        return response.data.data;
     },
 
-    // 5. Reports & Overview (Adapters for UI)
-    // The UI uses getSalaryOverview, which roughly maps to MonthlySummary for now
+    // 5. Reports (Using Summary for now)
     getSalaryOverview: async (membershipId: number, month: string) => {
-        const response = await api.get<MonthlySalarySummary>(`${SALARY_BASE_URL}/${membershipId}/monthly-summary`, {
-            params: { month }
-        });
-        return response.data;
+        return salaryApi.getMonthlySummary(membershipId, month);
     },
-    // The UI uses getReports. Assuming it fetches a list of reports or summaries. 
-    // For now, we'll map it to a placeholder or reuse summary if appropriate.
-    // Based on page usage, it expects a list.
+    // Mock for reports list
     getReports: async (params?: SalaryReportQuery) => {
-        // Placeholder return to fix build type error
-        // Real implementation would call API
-        return [] as SalaryReport[];
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return [];
     }
 };
 
@@ -1428,6 +1429,30 @@ export interface SalaryOverviewSummary {
     pendingAmount: number;
     confirmedAmount: number;
     totalAmount: number;
+}
+
+export interface SalaryAdjustment {
+    id?: number;
+    classId?: number;
+    amount: number;
+    reason: string;
+    createdAt?: string;
+    status?: string;
+}
+
+export interface SalaryReportQuery {
+    month?: string;
+    instructorId?: string;
+}
+
+export interface SalaryReport {
+    id: string;
+    instructorId: string;
+    instructorName: string;
+    month: string;
+    confirmedAmount: number;
+    status: 'DRAFT' | 'SENT' | 'CONFIRMED';
+    generatedAt: string;
 }
 
 export interface SalaryAdjustment {
