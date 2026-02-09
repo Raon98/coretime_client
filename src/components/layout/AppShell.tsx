@@ -17,7 +17,10 @@ import {
     IconPlus,
     IconUserCheck,
     IconUserCircle,
-    IconBriefcase
+    IconBriefcase,
+    IconCurrencyDollar,
+    IconChartBar,
+    IconFileInvoice
 } from '@tabler/icons-react';
 import { BrandLogo } from '@/components/common/BrandLogo';
 import { useAuth, UserRole } from '@/features/auth';
@@ -72,6 +75,17 @@ const getNavItems = (role: UserRole): NavItem[] => {
                 ]
             },
             {
+                label: '급여 관리',
+                icon: IconCurrencyDollar,
+                link: '/center/salary',
+                children: [
+                    { label: '급여 현황', link: '/center/salary/overview' },
+                    { label: '급여 지급', link: '/center/salary/payments' },
+                    { label: '예산 관리', link: '/center/salary/budget' },
+                    { label: '정산서 관리', link: '/center/salary/reports' },
+                ]
+            },
+            {
                 label: '매출 및 결제',
                 icon: IconReceipt2,
                 link: '/finance',
@@ -81,15 +95,6 @@ const getNavItems = (role: UserRole): NavItem[] => {
                     { label: '매출 통계', link: '/finance/stats' },
                 ]
             },
-            // {
-            //     label: '마케팅/소통',
-            //     icon: IconSpeakerphone,
-            //     link: '/marketing',
-            //     children: [
-            //         { label: '메시지 발송', link: '/marketing/messages' },
-            //         { label: '알림 설정', link: '/marketing/settings' },
-            //     ]
-            // },
             {
                 label: '설정',
                 icon: IconSettings,
